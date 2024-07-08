@@ -1,0 +1,77 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<EnableWindowsTargeting>True</EnableWindowsTargeting>
+		<Authors>Legends Contributors</Authors>
+		<Copyright>(C) Legends</Copyright>
+		<PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+		<AssemblyName>Darkages.Server</AssemblyName>
+		<RootNamespace>Darkages</RootNamespace>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPublishable>False</IsPublishable>
+		<SelfContained>false</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<ErrorReport>send</ErrorReport>
+		<RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<Optimize>False</Optimize>
+		<PlatformTarget>x64</PlatformTarget>
+		<AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+		<WarningLevel>4</WarningLevel>
+		<DebugType>embedded</DebugType>
+		<DebugSymbols>true</DebugSymbols>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<Optimize>False</Optimize>
+		<PlatformTarget>x64</PlatformTarget>
+		<AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+		<WarningLevel>4</WarningLevel>
+		<DebugType>embedded</DebugType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="LegChaos-Networking" Version="1.0.0" />
+		<PackageReference Include="Dapper.StrongName" Version="2.1.35" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.1" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="RestSharp" Version="111.2.0" />
+		<PackageReference Include="ServiceStack" Version="8.2.2" />
+		<PackageReference Include="ServiceStack.Text" Version="8.2.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="GameScripts\Affects\" />
+	  <Folder Include="GameScripts\Monsters\" />
+	  <Folder Include="GameScripts\Skills\" />
+	  <Folder Include="GameScripts\Spells\" />
+	  <Folder Include="GameScripts\Weapons\" />
+	  <Folder Include="ScriptingBase\GameScripts\Affects\" />
+	  <Folder Include="ScriptingBase\GameScripts\Areas\" />
+	  <Folder Include="ScriptingBase\GameScripts\Creations\" />
+	  <Folder Include="ScriptingBase\GameScripts\Formulas\" />
+	  <Folder Include="ScriptingBase\GameScripts\Items\" />
+	  <Folder Include="ScriptingBase\GameScripts\Monsters\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Abel\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Arena\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Gems\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Generic\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Hell\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Mehadi\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Mileth\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Rucesion\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Tagor\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\TempleOfLight\" />
+	  <Folder Include="ScriptingBase\GameScripts\Mundanes\Tutorial\" />
+	  <Folder Include="ScriptingBase\GameScripts\Skills\" />
+	  <Folder Include="ScriptingBase\GameScripts\Spells\spells that need categorization\" />
+	  <Folder Include="ScriptingBase\GameScripts\Weapons\" />
+	</ItemGroup>
+
+	<Import Project="..\LegendsReborn.Configurations\LegendsReborn.Configurations.projitems" Label="Shared" />
+
+</Project>

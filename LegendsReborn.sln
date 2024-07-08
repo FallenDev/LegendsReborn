@@ -1,0 +1,37 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35004.147
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegendsReborn", "LegendsReborn\LegendsReborn.csproj", "{7E88753C-25DB-4E26-AF35-A4968FCF7C24}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LegendsReborn.Configurations", "LegendsReborn.Configurations\LegendsReborn.Configurations.shproj", "{E9ADE581-0044-4104-87C2-1EE17A64E6B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegendsReborn.Server.Base", "LegendsReborn.Server.Base\LegendsReborn.Server.Base.csproj", "{F5E9413F-47F3-4E80-98E4-81322D784556}"
+EndProject
+Global
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D1374299-73A8-442C-BB7B-A16121ABDBFF}
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7E88753C-25DB-4E26-AF35-A4968FCF7C24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E88753C-25DB-4E26-AF35-A4968FCF7C24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E88753C-25DB-4E26-AF35-A4968FCF7C24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E88753C-25DB-4E26-AF35-A4968FCF7C24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5E9413F-47F3-4E80-98E4-81322D784556}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5E9413F-47F3-4E80-98E4-81322D784556}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5E9413F-47F3-4E80-98E4-81322D784556}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5E9413F-47F3-4E80-98E4-81322D784556}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		LegendsReborn.Configurations\LegendsReborn.Configurations.projitems*{7e88753c-25db-4e26-af35-a4968fcf7c24}*SharedItemsImports = 5
+		LegendsReborn.Configurations\LegendsReborn.Configurations.projitems*{e9ade581-0044-4104-87c2-1ee17a64e6b4}*SharedItemsImports = 13
+		LegendsReborn.Configurations\LegendsReborn.Configurations.projitems*{f5e9413f-47f3-4e80-98e4-81322d784556}*SharedItemsImports = 5
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
