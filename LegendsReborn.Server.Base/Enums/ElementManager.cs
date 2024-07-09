@@ -9,11 +9,10 @@ public class ElementManager
         Water = 0x02,
         Wind = 0x03,
         Earth = 0x04,
-        Holy = 0x05,
-        Void = 0x06,
-        Rage = 0x07,
-        Terror = 0x08,
-        Sorrow = 0x09
+        Light = 0x05,
+        Dark = 0x06,
+        Random = 0x07,
+        Neutral = 0x08
     }
 
     public static string ElementValue(Element e)
@@ -25,11 +24,10 @@ public class ElementManager
             Element.Water => "Water",
             Element.Wind => "Wind",
             Element.Earth => "Earth",
-            Element.Holy => "Holy",
-            Element.Void => "Void",
-            Element.Rage => "Rage",
-            Element.Terror => "Terror",
-            Element.Sorrow => "Sorrow",
+            Element.Light => "Light",
+            Element.Dark => "Dark",
+            Element.Random => "Random",
+            Element.Neutral => "Neutral",
             _ => "None"
         };
     }

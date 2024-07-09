@@ -1,0 +1,16 @@
+﻿{=e               Welcome to Legends: Age of Chaos 1.07
+{=f               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+{=cLegends is a love letter to the early days in Temuair's rich history.
+
+{=uPlease remember to treat eachother, and the Legends Team, 
+{=uwith the same kindness and respect with which you would 
+{=uexpect to be treated.
+
+{=uPlease remember read the in-game boards for updates, 
+{=userver rules, and other important information.
+{=uThank you again for your continued support!
+
+{=u Best wishes,
+{=e~Legends Team
+
+{=cLast Update:            06/09/2024

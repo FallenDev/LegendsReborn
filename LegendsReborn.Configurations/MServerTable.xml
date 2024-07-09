@@ -1,0 +1,18 @@
+﻿<MServerTable>
+	<Servers>
+		<MServer>
+			<ID>1</ID>
+			<Addr>127.0.0.1</Addr>
+			<Port>4201</Port>
+			<Name>Legends</Name>
+			<Desc>Age of Chaos</Desc>
+		</MServer>
+		<MServer>
+			<ID>2</ID>
+			<Addr>66.211.203.116</Addr>
+			<Port>4201</Port>
+			<Name>Zolian</Name>
+			<Desc>Zolian Beta - Stable</Desc>
+		</MServer>
+	</Servers>
+</MServerTable>

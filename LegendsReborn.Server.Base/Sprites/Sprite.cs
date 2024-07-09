@@ -1,9 +1,11 @@
 ﻿using Chaos.Common.Definitions;
+using Chaos.Extensions.Common;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions.Definitions;
 
 using Darkages.Common;
 using Darkages.Enums;
+using Darkages.GameScripts.Items;
 using Darkages.Interfaces;
 using Darkages.Object;
 using Darkages.ScriptingBase;
@@ -12,9 +14,14 @@ using Darkages.Types;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Formats.Asn1;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using Darkages.Types.Buffs;
+using Legends.Server.Base.Types.Debuffs;
+using static System.Formats.Asn1.AsnWriter;
 
 using MapFlags = Darkages.Enums.MapFlags;
 
@@ -31,110 +38,106 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     private readonly Stopwatch _threatControl = new();
     private readonly object _walkLock = new();
 
-    public bool Alive => CurrentHp > 1;
-    public bool Attackable => this is Monster || this is Aisling;
+    public bool Alive => CurrentHp > 0;
+    public bool Attackable => this is Monster || this is Aisling || this is Mundane;
+    public int Ablasion;
     public Aisling PlayerNearby => AislingsNearby().FirstOrDefault();
 
     #region Buffs Debuffs
 
-    private int _frozenStack;
-    public bool IsWeakened => CurrentHp <= MaximumHp * .05;
-    public bool IsAited => HasBuff("Aite") || HasBuff("Dia Aite");
-    public bool Immunity => HasBuff("Dion") || HasBuff("Mor Dion") || HasBuff("Ard Dion") || HasBuff("Stone Skin") ||
-                            HasBuff("Iron Skin") || HasBuff("Wings of Protection");
-    public bool Hastened => HasBuff("Hastenga") || HasBuff("Hasten") || HasBuff("Haste");
-    public bool SpellReflect => HasBuff("Deireas Faileas");
-    public bool SpellNegate => HasBuff("Perfect Defense") || this is Aisling { GameMaster: true };
-    public bool SkillReflect => HasBuff("Asgall") || this is Aisling { GameMaster: true };
-    public bool IsBlind => HasDebuff("Blind");
-    public bool IsConfused => HasDebuff("Confused");
-    public bool IsSilenced => HasDebuff("Silence");
-    public bool IsFrozen => HasDebuff("Frozen") || HasDebuff("Adv Frozen") || HasDebuff("Dark Chain");
-    public bool IsStopped => HasDebuff("Halt");
-    public bool IsBeagParalyzed => HasDebuff("Beag Suain");
-    public bool IsPoisoned => HasDebuff(i => i.Name.Contains("Puinsein"));
-    public bool IsSleeping => HasDebuff("Sleep");
-    public bool IsInvisible => HasBuff("Hide") || HasBuff("Shadowfade");
-    public bool DrunkenFist => HasBuff("Drunken Fist");
-    private bool NinthGateReleased => HasBuff("Ninth Gate Release");
-    private bool Berserk => HasBuff("Berserker Rage");
-    private bool IsEnhancingSecondaryOffense => HasBuff("Atlantean Weapon");
-    private bool IsCharmed => HasDebuff("Entice");
-    private bool IsBleeding => HasDebuff("Bleeding");
-    public bool IsVulnerable => IsFrozen || IsStopped || IsBlind || IsSleeping || Berserk || IsCharmed || IsWeakened || HasDebuff("Decay");
-    public bool IsBlocked => IsFrozen || IsStopped || IsSleeping;
-
-    public bool ClawFistEmpowerment { get; set; }
-    public bool CanSeeInvisible
-    {
-        get
-        {
-            if (this is not Monster monster) return HasBuff("Shadow Sight");
-            var canSee = monster.Scripts.TryGetValue("Aosda Remnant", out _);
-            if (canSee) return true;
-            canSee = monster.Scripts.TryGetValue("ShadowSight", out _);
-            if (canSee) return true;
-            canSee = monster.Scripts.TryGetValue("Weak ShadowSight", out _);
-            return canSee || HasBuff("Shadow Sight");
-        }
-    }
+    public bool IsAblative => HasBuff("tionac");
+    public bool IsAited => HasBuff("beag naomh aite") || HasBuff("naomh aite") || HasBuff("mor naomh aite") || HasBuff("ard naomh aite") || HasBuff("dia naomh aite") || HasBuff("io dia naomh aite ionad") || HasBuff("spionnadh");
+    public bool IsArrested => HasBuff("bot check") || HasBuff("arrested") || HasBuff("investigation");
+    public bool IsBleeding => HasDebuff("anaemia");
+    public bool IsBlind => HasDebuff("blind") || HasDebuff(i => i.Name.ToLower().ContainsI("siolaidh"));
+    public bool IsConfused => HasDebuff("confuse");
+    public bool IsCursed => HasDebuff(i => i.Name.ToLower().Contains("cradh") || i.Name.ToLower().Contains("siolaidh"));
+    public bool IsDoomed => HasDebuff("doom");
+    public bool IsDragon => HasBuff("dragon mode");
+    public bool IsFrozen => HasDebuff("frozen") || HasDebuff("shock") || HasDebuff(i => i.Name.ToLower().Contains("siolaidh"));
+    public bool IsMist => HasBuff("mist");
+    public bool IsParalyzed => HasDebuff("paralyze") || HasDebuff(i => i.Name.ToLower().Contains("suain") || HasDebuff("herbalism"));
+    public bool IsPetrified => HasDebuff("petrify");
+    public bool IsPhoenix => HasBuff("phoenix mode");
+    public bool IsPoisoned => HasDebuff(i => i.Name.ToLower().ContainsI("puinsein")) || HasDebuff(i => i.Name.ToLower().ContainsI("siolaidh"));
+    public bool IsRegen => HasBuff("beag aiseag beatha") || HasBuff("aiseag beatha") || HasBuff("mor aiseag beatha") || HasBuff("ard aiseag beatha");
+    public bool IsRefresh => HasBuff("beag aiseag spiorad") || HasBuff("aiseag spiorad") || HasBuff("mor aiseag spiorad") || HasBuff("ard aiseag spiorad");
+    public bool IsShield => HasBuff("sgiath");
+    public bool IsSilenced => HasDebuff("silence") || HasDebuff(i => i.Name.ToLower().ContainsI("siolaidh"));
+    public bool IsSleeping => HasDebuff("pramh") || HasDebuff("mor pramh") || HasDebuff(i => i.Name.ToLower().ContainsI("siolaidh"));
+    public bool EmpoweredAssail { get; set; }
+    public bool DragonScale { get; set; }
+    public bool PhoenixAssail { get; set; }
+    public bool WraithAssail { get; set; }
+    public int Barrier { get; set; }
+    public bool SpellReflect { get; set; }
+    public bool SkillReflect { get; set; }
+    public bool Immunity { get; set; }
 
     #endregion
 
-    public bool CantCast => IsFrozen || IsStopped || IsSleeping || IsSilenced;
-    public bool CantAttack => IsFrozen || IsStopped || IsSleeping || IsCharmed;
-    public bool CantMove => IsFrozen || IsStopped || IsSleeping || IsBeagParalyzed;
+    public bool CanCast => !(IsFrozen || IsSleeping || IsSilenced || IsPetrified);
+    public bool CanMove => !(IsFrozen || IsSleeping || IsParalyzed || IsBlind || IsPetrified || IsShield);
+    public bool CanBash => !(IsFrozen || IsSleeping || IsParalyzed || IsPetrified);
     public bool HasDoT => IsBleeding || IsPoisoned;
-    private long CheckHp => Math.Clamp(BaseHp + BonusHp, 0, long.MaxValue);
-    public long MaximumHp => Math.Clamp(CheckHp, 0, long.MaxValue);
-    private long CheckMp => Math.Clamp(BaseMp + BonusMp, 0, long.MaxValue);
-    public long MaximumMp => Math.Clamp(CheckMp, 0, long.MaxValue);
-    public int Regen => (_Regen + BonusRegen).IntClamp(1, 150);
-    public int Dmg => _Dmg + BonusDmg;
-    public double SealedModifier { get; set; }
-    public int SealedAc
+    public int? EventHp = null;
+    public int? EventMp = null;
+    public int? MapHp = null;
+    public int? MapMp = null;
+    public int MaximumHp =>
+        EventHp != null && Map.Flags.HasFlag(MapFlags.ArenaTeam) ? EventHp.Value + BonusHp
+        : MapHp != null && MapHp.Value < _MaximumHp ? MapHp.Value + BonusHp
+        : _MaximumHp + BonusHp;
+    public int MaximumMp =>
+        EventMp != null && Map.Flags.HasFlag(MapFlags.ArenaTeam) ? EventMp.Value
+        : MapMp != null && MapMp.Value < _MaximumMp ? MapMp.Value + BonusMp
+        : _MaximumMp + BonusMp;
+    public double HpPct
     {
-        get
-        {
-            switch (Ac)
-            {
-                case > 0:
-                    if (SealedModifier == 0) return Ac;
-                    return (int)(Ac * SealedModifier);
-                case <= 0:
-                    if (SealedModifier == 0) return Ac;
-                    return Ac - (int)(Math.Abs(Ac) * SealedModifier);
-            }
-        }
+        get => MaximumHp != 0 ? Math.Clamp(CurrentHp * 100.0 / MaximumHp, 0, 100) : 0;
+        set => CurrentHp = (int)(MaximumHp / 100.0 * value);
     }
-    private int AcFromDex => (Dex / 15).IntClamp(0, 500);
-    private int Ac => (_ac + BonusAc + AcFromDex).IntClamp(-200, 500);
-    private double _fortitude => (Con * 0.1).DoubleClamp(0, 90);
-    public double Fortitude => Math.Round(_fortitude + BonusFortitude, 2);
-    private double _reflex => (Hit * 0.1).DoubleClamp(0, 90);
-    public double Reflex => Math.Round(_reflex, 2);
-    private double _will => (Mr * 0.14).DoubleClamp(0, 80);
-    public double Will => Math.Round(_will, 2);
-    public int Hit => _Hit + BonusHit;
-    private int Mr => _Mr + BonusMr;
+    public double MpPct
+    {
+        get => MaximumMp != 0 ? Math.Clamp(CurrentMp * 100.0 / MaximumMp, 0, 100) : 0;
+        set => CurrentMp = (int)(MaximumMp / 100.0 * value);
+    }
+    public int Regen => (_Regen + BonusRegen).IntClamp(0, byte.MaxValue);
+    public int Dmg => (_Dmg + BonusDmg).IntClamp(0, byte.MaxValue);
+    private int Ac => (_ac + BonusAc).IntClamp(-127, 127);
+    public int Hit => IsBlind ? 0 : (_Hit + BonusHit).IntClamp(0, byte.MaxValue);
+    private int Mr => (_Mr + BonusMr).IntClamp(0, 70);
     public int Str => (_Str + BonusStr).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Int => (_Int + BonusInt).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Wis => (_Wis + BonusWis).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Con => (_Con + BonusCon).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Dex => (_Dex + BonusDex).IntClamp(0, ServerSetup.Instance.Config.StatCap);
-    public int Luck => _Luck + BonusLuck;
 
     public Area Map => ServerSetup.Instance.GlobalMapCache.GetValueOrDefault(CurrentMapId);
 
-    public Position Position => new(Pos);
+    #region Map HP/MP Limiters
 
-    public ushort Level => TileType switch
-    {
-        TileContent.Aisling => ((Aisling)this).ExpLevel,
-        TileContent.Monster => ((Monster)this).Template.Level,
-        TileContent.Item => ((Item)this).Template.LevelRequired,
-        _ => 0
-    };
+    public bool IsAosdanMountain => CurrentMapId is 312 or (>= 11553 and <= 11562);
+    public bool IsCthonicRemains => CurrentMapId is >= 5001 and <= 5030;
+    public bool IsDubhaimAdvance => CurrentMapId is 18 or 19 or 20 or 22 or 23 or 24 or 26 or 27;
+    public bool IsOrenRuins => CurrentMapId is 58 or 59 or 61 or 62 or 64;
+    public bool IsKas1F => CurrentMapId is 624 or 11522;
+    public bool IsKas2F => CurrentMapId is 629 or 11523;
+    public bool IsKas3F => CurrentMapId is 633 or 11524;
+    public bool IsKas4F => CurrentMapId is 628 or 11525;
+    public bool IsKas5F => CurrentMapId is 0;
+    public bool IsLimbo => CurrentMapId is 6969 or 6970 or 6971;
+
+    #endregion Map HP/MP Limiters
+
+    public Position Position => new(Pos);
+    public TileContent EntityType { get; protected set; }
+
+    public int Level => EntityType == TileContent.Aisling ? ((Aisling)this).ExpLevel
+        : EntityType == TileContent.Monster ? ((Monster)this).Template.Level
+        : EntityType == TileContent.Mundane ? ((Mundane)this).Template.Level
+        : EntityType == TileContent.Item ? ((Item)this).Template.LevelRequired : 1;
+    public Aisling Summoner { get; set; }
 
     private static readonly int[][] Directions =
     [
@@ -168,7 +171,6 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         var readyTime = DateTime.UtcNow;
         BuffAndDebuffTimer = new WorldServerTimer(TimeSpan.FromSeconds(1));
         Amplified = 0;
-        SealedModifier = 0;
         Target = null;
         Buffs = [];
         Debuffs = [];
@@ -179,13 +181,19 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         LastPosition = new Position(Vector2.Zero);
     }
 
+    public static Aisling Aisling(Sprite obj)
+    {
+        if (obj is Aisling aisling)
+            return aisling;
+
+        return null;
+    }
+
     public uint Serial { get; set; }
     public int CurrentMapId { get; set; }
     public double Amplified { get; set; }
     public ElementManager.Element OffenseElement { get; set; }
-    public ElementManager.Element SecondaryOffensiveElement { get; set; }
     public ElementManager.Element DefenseElement { get; set; }
-    public ElementManager.Element SecondaryDefensiveElement { get; set; }
     public DateTime AbandonedDate { get; set; }
     public Sprite Target { get; set; }
     public int X { get; set; }
@@ -205,24 +213,51 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public byte Direction { get; set; }
     public int PendingX { get; set; }
     public int PendingY { get; set; }
+    public int XPos
+    {
+        get => X;
+        set
+        {
+            if (X == value)
+                return;
+
+            X = value;
+            NotifyPropertyChanged();
+        }
+    }
+    public int YPos
+    {
+        get => Y;
+        set
+        {
+            if (Y == value)
+                return;
+
+            Y = value;
+
+            NotifyPropertyChanged();
+        }
+    }
     public DateTime LastMenuInvoked { get; set; }
     public DateTime LastMovementChanged { get; set; }
     public DateTime LastTargetAcquired { get; set; }
     public DateTime LastTurnUpdated { get; set; }
     public DateTime LastUpdated { get; set; }
-    public PrimaryStat MajorAttribute { get; set; }
+    public DateTime LastEquipOrUnEquip { get; set; }
     public ConcurrentDictionary<string, Buff> Buffs { get; }
     public ConcurrentDictionary<string, Debuff> Debuffs { get; }
 
     #region Stats
 
-    public long CurrentHp { get; set; }
-    public long BaseHp { get; set; }
-    public long BonusHp { get; set; }
+    public int CurrentHp { get; set; }
+    public int _MaximumHp { get; set; }
+    public int BaseHp { get; set; }
+    public int BonusHp { get; set; }
 
-    public long CurrentMp { get; set; }
-    public long BaseMp { get; set; }
-    public long BonusMp { get; set; }
+    public int CurrentMp { get; set; }
+    public int _MaximumMp { get; set; }
+    public int BaseMp { get; set; }
+    public int BonusMp { get; set; }
 
     public int _Regen { get; set; }
     public int BonusRegen { get; set; }
@@ -256,17 +291,66 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public int _Dex { get; set; }
     public int BonusDex { get; set; }
 
-    public int _Luck { get; set; }
-    public int BonusLuck { get; set; }
-
     #endregion
+
+    public bool SetMapHp(Sprite source)
+    {
+        var cthonicRemains = 15000;
+        var orenRuins = 20000;
+        var limbo = 30000;
+        var aosdanMountain = 40000;
+        var masterLimbo = 50000;
+        var dubhaimAdvance = 60000;
+
+
+        if (IsCthonicRemains || IsKas1F)
+            source.MapHp = cthonicRemains;
+        else if (IsOrenRuins)
+            source.MapHp = orenRuins;
+        else if (IsLimbo || IsKas2F)
+            source.MapHp = limbo;
+        else if (IsAosdanMountain || IsKas3F)
+            source.MapHp = aosdanMountain;
+        else if (/*IsMasterLimbo ||*/IsKas4F)
+            source.MapHp = masterLimbo;
+        else if (IsDubhaimAdvance || IsKas5F)
+            source.MapHp = dubhaimAdvance;
+        else
+            source.MapHp = null;
+        return true;
+    }
+
+    public bool SetMapMp(Sprite source)
+    {
+        var cthonicRemains = 7500;
+        var orenRuins = 10000;
+        var limbo = 15000;
+        var aosdanMountain = 20000;
+        var masterLimbo = 25000;
+        var dubhaimAdvance = 30000;
+
+        if (IsCthonicRemains || IsKas1F)
+            source.MapMp = cthonicRemains;
+        else if (IsOrenRuins)
+            source.MapMp = orenRuins;
+        else if (IsLimbo || IsKas2F)
+            source.MapMp = limbo;
+        else if (IsAosdanMountain || IsKas3F)
+            source.MapMp = aosdanMountain;
+        else if (/*IsMasterLimbo ||*/IsKas4F)
+            source.MapMp = masterLimbo;
+        else if (IsDubhaimAdvance  /*||IsKas5F*/)
+            source.MapMp = dubhaimAdvance;
+        else
+            source.MapMp = null;
+        return true;
+    }
 
     public bool CanBeAttackedHere(Sprite source)
     {
-        if (source is not Aisling || this is not Aisling) return true;
-        if (CurrentMapId <= 0 || !ServerSetup.Instance.GlobalMapCache.TryGetValue(CurrentMapId, out var value)) return true;
-
-        return value.Flags.MapFlagIsSet(MapFlags.PlayerKill);
+        if (source is not Sprites.Aisling || this is not Sprites.Aisling) return true;
+        if ((CurrentMapId <= 0) || !ServerSetup.Instance.GlobalMapCache.ContainsKey(CurrentMapId)) return true;
+        return ServerSetup.Instance.GlobalMapCache[CurrentMapId].Flags.HasFlag(MapFlags.PlayerKill);
     }
 
     public void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
@@ -296,256 +380,51 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         }
     }
 
-    public List<Sprite> GetInFrontToSide(int tileCount = 1)
+    public Aisling[] AislingsNearby() => GetObjects<Aisling>(Map, i => (i != null) && i.WithinViewOf(this)).ToArray();
+    public Aisling[] AislingsOnMap() => GetObjects<Aisling>(Map, i => (i != null) && i.WithinRangeOf(this, 100)).ToArray();
+    public Item[] ItemsOnMap() => GetObjects<Item>(Map, i => (i != null) && i.WithinRangeOf(this, 100)).ToArray();
+    private IEnumerable<Sprite> GetInFrontToSide(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
         switch (Direction)
         {
             case 0:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
+                results.AddRange(GetSprites(XPos, YPos - tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos - tileCount));
+                results.AddRange(GetSprites(XPos - tileCount, YPos - tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos));
+                results.AddRange(GetSprites(XPos - tileCount, YPos));
                 break;
 
             case 1:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos));
+                results.AddRange(GetSprites(XPos + tileCount, YPos + tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos - tileCount));
+                results.AddRange(GetSprites(XPos, YPos + tileCount));
+                results.AddRange(GetSprites(XPos, YPos - tileCount));
                 break;
 
             case 2:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
+                results.AddRange(GetSprites(XPos, YPos + tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos + tileCount));
+                results.AddRange(GetSprites(XPos - tileCount, YPos + tileCount));
+                results.AddRange(GetSprites(XPos + tileCount, YPos));
+                results.AddRange(GetSprites(XPos - tileCount, YPos));
                 break;
 
             case 3:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
+                results.AddRange(GetSprites(XPos - tileCount, YPos));
+                results.AddRange(GetSprites(XPos - tileCount, YPos + tileCount));
+                results.AddRange(GetSprites(XPos - tileCount, YPos - tileCount));
+                results.AddRange(GetSprites(XPos, YPos + tileCount));
+                results.AddRange(GetSprites(XPos, YPos - tileCount));
                 break;
         }
 
         return results;
     }
-
-    public List<Sprite> MonsterGetInFrontToSide(int tileCount = 1)
-    {
-        var results = new List<Sprite>();
-
-        switch (Direction)
-        {
-            case 0:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
-                break;
-
-            case 1:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
-                break;
-
-            case 2:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
-                break;
-
-            case 3:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
-                break;
-        }
-
-        return results;
-    }
-
-    public List<Sprite> MonsterGetFiveByFourRectInFront()
-    {
-        var results = new List<Sprite>();
-
-        switch (Direction)
-        {
-            // North
-            case 0:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 1));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 3));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 4));
-                break;
-            // East
-            case 1:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y - 2));
-                break;
-            // South
-            case 2:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 1));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 3));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 3));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 4));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 4));
-                break;
-            // West
-            case 3:
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y - 2));
-
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y + 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y + 2));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y - 1));
-                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y - 2));
-                break;
-        }
-
-        return results;
-    }
-
-    public List<Sprite> GetHorizontalInFront(int tileCount = 1)
-    {
-        var results = new List<Sprite>();
-
-        switch (Direction)
-        {
-            case 0:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                break;
-
-            case 1:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y - tileCount));
-                break;
-
-            case 2:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X + tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                break;
-
-            case 3:
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y + tileCount));
-                results.AddRange(AislingGetDamageableSprites((int)Pos.X - tileCount, (int)Pos.Y - tileCount));
-                break;
-        }
-
-        return results;
-    }
-
-    public Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1)
-    {
-        var empty = Position;
-        var blocks = target.Position.SurroundingContent(Map);
-
-        if (blocks.Length <= 0) return empty;
-
-        var selections = blocks.Where(i => i.Content is TileContent.None or TileContent.Item or TileContent.Money);
-        var selection = selections.MaxBy(i => i.Position.DistanceFrom(Position));
-
-        if (selection != null)
-            empty = selection.Position;
-
-        return empty;
-    }
-
-    public List<Sprite> GetAllInFront(int tileCount = 1)
+    private IEnumerable<Sprite> GetInfront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -553,26 +432,33 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             switch (Direction)
             {
                 case 0:
-                    results.AddRange(GetSprites((int)Pos.X, (int)Pos.Y - i));
+                    results.AddRange(GetSprites(XPos, YPos - i));
                     break;
 
                 case 1:
-                    results.AddRange(GetSprites((int)Pos.X + i, (int)Pos.Y));
+                    results.AddRange(GetSprites(XPos + i, YPos));
                     break;
 
                 case 2:
-                    results.AddRange(GetSprites((int)Pos.X, (int)Pos.Y + i));
+                    results.AddRange(GetSprites(XPos, YPos + i));
                     break;
 
                 case 3:
-                    results.AddRange(GetSprites((int)Pos.X - i, (int)Pos.Y));
+                    results.AddRange(GetSprites(XPos - i, YPos));
                     break;
             }
 
         return results;
     }
-
-    public List<Sprite> DamageableGetInFront(int tileCount = 1)
+    public List<Sprite> GetInfront(Sprite sprite, int tileCount = 1) => GetInfront(tileCount).Where(i => (i != null) && (i.Serial != sprite.Serial)).ToList();
+    public List<Sprite> GetInfront(int tileCount = 1, bool intersect = false) => GetInfront(tileCount).ToList();
+    public List<Sprite> AmbushInFront(int tilecount = 1, bool intersect = false) => AmbushInFront(tilecount).ToList();
+    public List<Sprite> DamageableGetInFront(int tileCount = 1, bool intersect = false) => DamageableGetInFront(tileCount).ToList();
+    public List<Sprite> StudyCreatureGetInFront(int tileCount = 1, bool intersect = false) => StudyCreatureInFront(tileCount).ToList();
+    private IEnumerable<Sprite> AislingGetDamageableSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.AislingDamage);
+    private IEnumerable<Sprite> StudyCreatureSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.Monsters);
+    private IEnumerable<Sprite> AmbushSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.Monsters & Get.Aislings & Get.Mundanes);
+    private IEnumerable<Sprite> DamageableGetInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -580,80 +466,25 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             switch (Direction)
             {
                 case 0:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - i));
+                    results.AddRange(AislingGetDamageableSprites(XPos, YPos - i));
                     break;
 
                 case 1:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X + i, (int)Pos.Y));
+                    results.AddRange(AislingGetDamageableSprites(XPos + i, YPos));
                     break;
 
                 case 2:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + i));
+                    results.AddRange(AislingGetDamageableSprites(XPos, YPos + i));
                     break;
 
                 case 3:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X - i, (int)Pos.Y));
+                    results.AddRange(AislingGetDamageableSprites(XPos - i, YPos));
                     break;
             }
 
         return results;
     }
-
-    public List<Position> GetTilesInFront(int tileCount = 1)
-    {
-        var results = new List<Position>();
-
-        for (var i = 1; i <= tileCount; i++)
-            switch (Direction)
-            {
-                case 0:
-                    results.Add(new Position((int)Pos.X, (int)Pos.Y - i));
-                    break;
-
-                case 1:
-                    results.Add(new Position((int)Pos.X + i, (int)Pos.Y));
-                    break;
-
-                case 2:
-                    results.Add(new Position((int)Pos.X, (int)Pos.Y + i));
-                    break;
-
-                case 3:
-                    results.Add(new Position((int)Pos.X - i, (int)Pos.Y));
-                    break;
-            }
-
-        return results;
-    }
-
-    public List<Sprite> DamageableGetAwayInFront(int tileCount = 2)
-    {
-        var results = new List<Sprite>();
-
-        for (var i = 2; i <= tileCount; i++)
-            switch (Direction)
-            {
-                case 0:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - i));
-                    break;
-
-                case 1:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X + i, (int)Pos.Y));
-                    break;
-
-                case 2:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + i));
-                    break;
-
-                case 3:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X - i, (int)Pos.Y));
-                    break;
-            }
-
-        return results;
-    }
-
-    public List<Sprite> DamageableGetBehind(int tileCount = 1)
+    private IEnumerable<Sprite> StudyCreatureInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -661,26 +492,25 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             switch (Direction)
             {
                 case 0:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y + i));
+                    results.AddRange(StudyCreatureSprites(XPos, YPos - i));
                     break;
 
                 case 1:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X - i, (int)Pos.Y));
+                    results.AddRange(StudyCreatureSprites(XPos + i, YPos));
                     break;
 
                 case 2:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X, (int)Pos.Y - i));
+                    results.AddRange(StudyCreatureSprites(XPos, YPos + i));
                     break;
 
                 case 3:
-                    results.AddRange(AislingGetDamageableSprites((int)Pos.X + i, (int)Pos.Y));
+                    results.AddRange(StudyCreatureSprites(XPos - i, YPos));
                     break;
             }
 
         return results;
     }
-
-    public List<Sprite> MonsterGetInFront(int tileCount = 1)
+    private IEnumerable<Sprite> AmbushInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -688,239 +518,51 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             switch (Direction)
             {
                 case 0:
-                    results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - i));
+                    results.AddRange(AmbushSprites(XPos, YPos - i));
                     break;
 
                 case 1:
-                    results.AddRange(MonsterGetDamageableSprites((int)Pos.X + i, (int)Pos.Y));
+                    results.AddRange(AmbushSprites(XPos + i, YPos));
                     break;
 
                 case 2:
-                    results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + i));
+                    results.AddRange(AmbushSprites(XPos, YPos + i));
                     break;
 
                 case 3:
-                    results.AddRange(MonsterGetDamageableSprites((int)Pos.X - i, (int)Pos.Y));
+                    results.AddRange(AmbushSprites(XPos - i, YPos));
                     break;
             }
 
         return results;
     }
-
-    public Position GetPendingChargePosition(int warp, Sprite sprite)
+    public List<Sprite> GetInFrontToSide(Sprite sprite, int tileCount = 1) => GetInFrontToSide(tileCount).Where(i => (i != null) && (i.Serial != sprite.Serial)).ToList();
+    public List<Sprite> GetInFrontToSide(int tileCount = 1, bool intersect = false) => GetInFrontToSide(tileCount).ToList();
+    private IEnumerable<Sprite> GetSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.All);
+    public bool WithinRangeOf(Sprite other, bool checkMap = true) => (other != null) && WithinRangeOf(other, ServerSetup.Instance.Config.WithinRangeProximity, checkMap);
+    public bool WithinViewOf(Sprite other, bool checkMap = true) => (other != null) && WithinRangeOf(other, ServerSetup.Instance.Config.WithinViewProximity, checkMap);
+    public bool WithinRangeOf(Sprite other, int distance, bool checkMap = true)
     {
-        var pendingX = X;
-        var pendingY = Y;
+        if (other == null)
+            return false;
 
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 0)
-                pendingY--;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingY++;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 1)
-                pendingX++;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingX--;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 2)
-                pendingY++;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingY--;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 3)
-                pendingX--;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingX++;
-            break;
-        }
+        if (!checkMap)
+            return WithinRangeOf(other.XPos, other.YPos, distance);
 
-        return new Position(pendingX, pendingY);
+        return (CurrentMapId == other.CurrentMapId) && WithinRangeOf(other.XPos, other.YPos, distance);
     }
-
-    public Position GetPendingChargePositionNoTarget(int warp, Sprite sprite)
+    private bool WithinRangeOf(int x, int y, int subjectLength) => DistanceFrom(x, y) <= subjectLength;
+    public bool TrapsAreNearby() => Trap.Traps.Select(i => i.Value).Any(i => i.CurrentMapId == CurrentMapId);
+    public Monster Monster(Sprite obj)
     {
-        var pendingX = X;
-        var pendingY = Y;
+        if (obj is Monster monster)
+            return monster;
 
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 0)
-                pendingY--;
-            if (sprite is Aisling aisling)
-                aisling.Client.CheckWarpTransitions(aisling.Client, pendingX, pendingY);
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingY++;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 1)
-                pendingX++;
-            if (sprite is Aisling aisling)
-                aisling.Client.CheckWarpTransitions(aisling.Client, pendingX, pendingY);
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingX--;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 2)
-                pendingY++;
-            if (sprite is Aisling aisling)
-                aisling.Client.CheckWarpTransitions(aisling.Client, pendingX, pendingY);
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingY--;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 3)
-                pendingX--;
-            if (sprite is Aisling aisling)
-                aisling.Client.CheckWarpTransitions(aisling.Client, pendingX, pendingY);
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            pendingX++;
-            break;
-        }
-
-        return new Position(pendingX, pendingY);
+        return null;
     }
-
-    public Position GetPendingThrowPosition(int warp, Sprite sprite)
-    {
-        var pendingX = X;
-        var pendingY = Y;
-
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 0)
-                pendingY++;
-            if (!sprite.Map.IsWall(pendingX, pendingY))
-            {
-                var pos = new Position(pendingX, pendingY);
-                PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(197, pos, sprite.Serial));
-                continue;
-            }
-            pendingY--;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 1)
-                pendingX--;
-            if (!sprite.Map.IsWall(pendingX, pendingY))
-            {
-                var pos = new Position(pendingX, pendingY);
-                PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(197, pos, sprite.Serial));
-                continue;
-            }
-            pendingX++;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 2)
-                pendingY--;
-            if (!sprite.Map.IsWall(pendingX, pendingY))
-            {
-                var pos = new Position(pendingX, pendingY);
-                PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(197, pos, sprite.Serial));
-                continue;
-            }
-            pendingY++;
-            break;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 3)
-                pendingX++;
-            if (!sprite.Map.IsWall(pendingX, pendingY))
-            {
-                var pos = new Position(pendingX, pendingY);
-                PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(197, pos, sprite.Serial));
-                continue;
-            }
-            pendingX--;
-            break;
-        }
-
-        return new Position(pendingX, pendingY);
-    }
-    public bool GetPendingThrowIsWall(int warp, Sprite sprite)
-    {
-        var pendingX = X;
-        var pendingY = Y;
-
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 0) pendingY++;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            return true;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 1) pendingX--;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            return true;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 2) pendingY--;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            return true;
-        }
-        for (var i = 0; i < warp; i++)
-        {
-            if (Direction == 3) pendingX++;
-            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
-            return true;
-        }
-
-        return false;
-    }
-
-
-    private IEnumerable<Sprite> GetSprites(int x, int y) => GetObjects(Map, i => (int)i.Pos.X == x && (int)i.Pos.Y == y, Get.All);
-    private IEnumerable<Sprite> AislingGetDamageableSprites(int x, int y) => GetObjects(Map, i => (int)i.Pos.X == x && (int)i.Pos.Y == y, Get.AislingDamage);
-    private IEnumerable<Sprite> MonsterGetDamageableSprites(int x, int y) => GetObjects(Map, i => (int)i.Pos.X == x && (int)i.Pos.Y == y, Get.MonsterDamage);
-    public bool WithinRangeOf(Sprite other) => other != null && WithinRangeOf(other, ServerSetup.Instance.Config.WithinRangeProximity);
-    public bool WithinEarShotOf(Sprite other) => other != null && WithinRangeOf(other, 14);
-    public bool WithinMonsterSpellRangeOf(Sprite other) => other != null && WithinRangeOf(other, 10);
-    public bool WithinRangeOf(Sprite other, int distance)
-    {
-        if (other == null) return false;
-        return CurrentMapId == other.CurrentMapId && WithinDistanceOf((int)other.Pos.X, (int)other.Pos.Y, distance);
-    }
-    public bool WithinDistanceOf(int x, int y, int subjectLength) => DistanceFrom(x, y) < subjectLength;
-
-    public Aisling[] AislingsNearby() => GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity)).ToArray();
-    public Aisling[] AislingsEarShotNearby() => GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, 14)).ToArray();
-    public Aisling[] AislingsOnMap() => GetObjects<Aisling>(Map, i => i != null && Map == i.Map).ToArray();
-    public IEnumerable<Monster> MonstersNearby() => GetObjects<Monster>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity));
-    public IEnumerable<Monster> MonstersOnMap() => GetObjects<Monster>(Map, i => i != null);
-    public IEnumerable<Mundane> MundanesNearby() => GetObjects<Mundane>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity));
-
-    public IEnumerable<Sprite> SpritesNearby()
-    {
-        var result = new List<Sprite>();
-        var listA = GetObjects<Monster>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity));
-        var listB = GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity));
-        result.AddRange(listA);
-        result.AddRange(listB);
-        return result;
-    }
-
+    public IEnumerable<Monster> MonstersNearby(int distance = 12) => GetObjects<Monster>(Map, i => (i != null) && i.WithinRangeOf(this, distance)).ToArray();
+    public IEnumerable<Mundane> MundanesNearby() => GetObjects<Mundane>(Map, i => (i != null) && i.WithinViewOf(this)).ToArray();
+    public IEnumerable<Item> ItemsNearby(int distance = 12) => GetObjects<Item>(Map, i => (i != null) && i.WithinRangeOf(this, distance)).ToArray();
     public bool NextTo(int x, int y)
     {
         var xDist = Math.Abs(x - X);
@@ -928,73 +570,15 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return xDist + yDist == 1;
     }
-
-    private int DistanceFrom(int x, int y)
-    {
-        // Manhattan Distance
-        return Math.Abs(X - x) + Math.Abs(Y - y);
-    }
-
+    private int DistanceFrom(int x, int y) => Math.Abs(X - x) + Math.Abs(Y - y);
+    protected bool Facing(Sprite other, out int direction) => Facing(other.XPos, other.YPos, out direction);
     public bool Facing(int x, int y, out int direction)
     {
-        var xDist = (x - (int)Pos.X).IntClamp(-1, +1);
-        var yDist = (y - (int)Pos.Y).IntClamp(-1, +1);
+        var xDist = (x - XPos).IntClamp(-1, +1);
+        var yDist = (y - YPos).IntClamp(-1, +1);
 
         direction = DirectionTable[xDist + 1][yDist + 1];
         return Direction == direction;
-    }
-
-    public bool FacingFarAway(int x, int y, out int direction)
-    {
-        var orgPos = Pos; // Sprites current position
-        var xDiff = orgPos.X - x; // Difference between points
-        var yDiff = orgPos.Y - y; // Difference between points
-        var xGap = Math.Abs(xDiff); // Absolute value of point
-        var yGap = Math.Abs(yDiff); // Absolute value of point
-
-        // Determine which point has a greater distance
-        if (xGap > yGap)
-            switch (xDiff)
-            {
-                case <= -1: // East
-                    direction = 1;
-                    return Direction == direction;
-                case >= 0: // West
-                    direction = 3;
-                    return Direction == direction;
-            }
-
-        switch (yDiff)
-        {
-            case <= -1: // South
-                direction = 2;
-                return Direction == direction;
-            case >= 0: // North
-                direction = 0;
-                return Direction == direction;
-        }
-
-        direction = 0;
-        return Direction == direction;
-    }
-
-    private bool CanAttack(Sprite attackingPlayer)
-    {
-        if (this is not Monster monster) return false;
-        if (monster.TargetRecord.TaggedAislings.TryGetValue(attackingPlayer.Serial, out _)) return true;
-        if (monster.Template.MonsterRace == MonsterRace.Dummy) return true;
-
-        // If the dictionary is empty, add the player
-        if (monster.TargetRecord.TaggedAislings.IsEmpty)
-        {
-            monster.TryAddPlayerAndHisGroup(attackingPlayer);
-            return true;
-        }
-
-        var playerTagged = monster.TargetRecord.TaggedAislings.TryGetValue(attackingPlayer.Serial, out _);
-        if (playerTagged) return true;
-
-        return monster.TryAddTagging(attackingPlayer);
     }
 
     #endregion
@@ -1003,6 +587,12 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     public bool Walk()
     {
+        if (this is Aisling user && !user.GameMaster && !user.ShouldWalk)
+        {
+            user.Client.UpdateDisplay();
+            return false;
+        }
+
         void Step0C(int x, int y)
         {
             var readyTime = DateTime.UtcNow;
@@ -1030,7 +620,6 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             if (this is Monster { Template: not null } monster)
             {
                 allowGhostWalk = monster.Template.IgnoreCollision;
-                if (monster.ThrownBack) return false;
             }
 
             // Check position before we add direction, add direction, check position to see if we can commit
@@ -1076,8 +665,9 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             return true;
         }
     }
+    public bool WalkTo(int x, int y) => WalkTo(x, y, false);
 
-    public bool WalkTo(int x, int y)
+    public bool WalkTo(int x, int y, bool ignoreWalls = false)
     {
         var buffer = new byte[2];
         var length = float.PositiveInfinity;
@@ -1085,37 +675,31 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         for (byte i = 0; i < 4; i++)
         {
-            var newX = (int)Pos.X + Directions[i][0];
-            var newY = (int)Pos.Y + Directions[i][1];
-            var pos = new Vector2(newX, newY);
+            var newX = X + Directions[i][0];
+            var newY = Y + Directions[i][1];
 
-            if (this is Monster { AStar: false })
+            if ((newX == x) &&
+                (newY == y))
+                return false;
+
+            if (Map.IsWall(newX, newY))
+                continue;
+
+            if (GetObjects(Map, n => (n.Serial == Serial) && (n.X == newX) && (n.Y == newY),
+                    Get.Monsters | Get.Aislings | Get.Mundanes).Any())
+                continue;
+
+            var xDist = x - newX;
+            var yDist = y - newY;
+            //var tDist = Sqrt(xDist * xDist + yDist * yDist);
+            var tDist = Math.Max(Math.Abs(xDist), Math.Abs(yDist));
+
+            if (length < tDist)
+                continue;
+
+            if (length > tDist)
             {
-                if ((int)pos.X == x && (int)pos.Y == y) return false;
-            }
-
-            try
-            {
-                if (Map.IsWall((int)pos.X, (int)pos.Y)) continue;
-                if (Map.IsSpriteInLocationOnWalk(this, (int)pos.X, (int)pos.Y)) continue;
-            }
-            catch (Exception ex)
-            {
-                ServerSetup.EventsLogger($"{ex}\nUnknown exception in WalkTo method.");
-    
-            }
-
-            var xDist = x - (int)pos.X;
-            var yDist = y - (int)pos.Y;
-
-            // Chebyshev Distance
-            TargetDistance = Math.Max(Math.Abs(xDist), Math.Abs(yDist));
-
-            if (length < TargetDistance) continue;
-
-            if (length > TargetDistance)
-            {
-                length = (float)TargetDistance;
+                length = tDist;
                 offset = 0;
             }
 
@@ -1125,13 +709,16 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             offset++;
         }
 
-        if (offset == 0) return false;
-        var r = Random.Shared.Next(0, offset) % buffer.Length;
-        if (r < 0 || buffer.Length <= r) return Walk();
-        var pendingDirection = buffer[r];
-        Direction = pendingDirection;
+        if (offset == 0)
+            return false;
 
-        return Walk();
+        lock (Generator.Random)
+        {
+            var pendingDirection = buffer[Generator.Random.Next(0, offset) % buffer.Length];
+            Direction = pendingDirection;
+
+            return Walk();
+        }
     }
 
     public void Wander()
@@ -1150,8 +737,6 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         {
             player?.Client.SendCreatureTurn(Serial, (Direction)Direction);
         }
-
-        LastTurnUpdated = DateTime.UtcNow;
     }
 
     public void CheckTraps(Monster monster)
@@ -1182,981 +767,473 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     #endregion
 
-    #region Initial Damage Application
-    // Entry methods to all damage to sprite
+    #region Attributes
 
-    public void ApplyElementalSpellDamage(Sprite source, long dmg, ElementManager.Element element, Spell spell)
-    {
-        var saved = source.OffenseElement;
-        source.OffenseElement = element;
-
-        if (this is Aisling aisling)
-        {
-            if (aisling.FireImmunity && source.OffenseElement == ElementManager.Element.Fire)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=bFire damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.WaterImmunity && source.OffenseElement == ElementManager.Element.Water)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=eWater damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.EarthImmunity && source.OffenseElement == ElementManager.Element.Earth)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=rEarth damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.WindImmunity && source.OffenseElement == ElementManager.Element.Wind)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=hWind damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.DarkImmunity && source.OffenseElement == ElementManager.Element.Void)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=nDark damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.LightImmunity && source.OffenseElement == ElementManager.Element.Holy)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=uLight damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-        }
-
-        MagicApplyDamage(source, dmg, spell);
-        source.OffenseElement = saved;
-    }
-
-    public void ApplyElementalSkillDamage(Sprite source, long dmg, ElementManager.Element element, Skill skill)
-    {
-        var saved = source.OffenseElement;
-
-        source.OffenseElement = element;
-        if (this is Aisling aisling)
-        {
-            if (aisling.FireImmunity && source.OffenseElement == ElementManager.Element.Fire)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=bFire damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.WaterImmunity && source.OffenseElement == ElementManager.Element.Water)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=eWater damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.EarthImmunity && source.OffenseElement == ElementManager.Element.Earth)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=rEarth damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.WindImmunity && source.OffenseElement == ElementManager.Element.Wind)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=hWind damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.DarkImmunity && source.OffenseElement == ElementManager.Element.Void)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=nDark damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-            if (aisling.LightImmunity && source.OffenseElement == ElementManager.Element.Holy)
-            {
-                aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=uLight damage negated");
-                source.OffenseElement = saved;
-                return;
-            }
-        }
-
-        ApplyDamage(source, dmg, skill);
-        source.OffenseElement = saved;
-    }
-
-    public void ApplyDamage(Sprite damageDealingSprite, long dmg, Skill skill, bool forceTarget = false)
-    {
-        if (!WithinRangeOf(damageDealingSprite)) return;
-        if (!Attackable) return;
-        if (!CanBeAttackedHere(damageDealingSprite)) return;
-
-        if (OffenseElement != ElementManager.Element.None)
-        {
-            dmg += (long)GetBaseDamage(damageDealingSprite, this, MonsterEnums.Elemental);
-        }
-        else
-        {
-            dmg += (long)GetBaseDamage(damageDealingSprite, this, MonsterEnums.Physical);
-        }
-
-        //ApplyAffliction(this, damageDealingSprite);
-
-        // Apply modifiers for attacker
-        dmg = ApplyPhysicalModifier();
-
-        if (damageDealingSprite is Aisling)
-        {
-            dmg = ApplyBehindTargetMod();
-            dmg = ApplyWeaponBonuses(damageDealingSprite, dmg);
-            if (damageDealingSprite.ClawFistEmpowerment)
-                dmg = (long)(dmg * 1.3);
-        }
-
-        // Check vulnerable and proc variances
-        dmg = Vulnerable(dmg);
-
-        // Apply modifiers for defender
-        if (this is Aisling defender)
-        {
-            dmg = ApplyPvpMod();
-        }
-
-        if (skill == null)
-        {
-            // Thrown weapon scripts play the swoosh sound #9
-            if (!DamageTarget(damageDealingSprite, ref dmg, 9, forceTarget)) return;
-        }
-        else
-        {
-            if (skill.Template.PostQualifiers.QualifierFlagIsSet(PostQualifier.IgnoreDefense) ||
-                skill.Template.PostQualifiers.QualifierFlagIsSet(PostQualifier.Both))
-                forceTarget = true;
-            if (!DamageTarget(damageDealingSprite, ref dmg, skill.Template.Sound, forceTarget)) return;
-        }
-
-        // Apply consequences
-        Thorns(damageDealingSprite, dmg);
-
-        // Run OnDamaged scripts
-        OnDamaged(damageDealingSprite, dmg);
-        return;
-
-        long ApplyPhysicalModifier()
-        {
-            var dmgAboveAcModifier = damageDealingSprite.Str * 0.25;
-            dmgAboveAcModifier /= 100;
-            var dmgAboveAcBoost = dmgAboveAcModifier * dmg;
-            dmg += (long)dmgAboveAcBoost;
-            return dmg;
-        }
-
-        long ApplyPvpMod()
-        {
-            if (Map.Flags.MapFlagIsSet(MapFlags.PlayerKill))
-                dmg = (long)(dmg * 0.75);
-            return dmg;
-        }
-
-        long ApplyBehindTargetMod()
-        {
-            if (damageDealingSprite is not Aisling aisling) return dmg;
-            if (aisling.Client.IsBehind(this))
-                dmg += (long)((dmg + ServerSetup.Instance.Config.BehindDamageMod) / 1.99);
-            return dmg;
-        }
-    }
-
-    public void ApplyTrapDamage(Sprite damageDealingSprite, long dmg, byte sound)
-    {
-        if (!Attackable) return;
-
-        if (Immunity)
-        {
-            PlayerNearby?.Client.SendHealthBar(this, sound);
-            return;
-        }
-
-        if (this is Aisling)
-        {
-            dmg = ApplyPvpMod();
-        }
-
-        if (IsAited && dmg > 100)
-            dmg -= (long)(dmg * ServerSetup.Instance.Config.AiteDamageReductionMod);
-
-        dmg = LuckModifier(dmg);
-
-        if (CurrentHp > MaximumHp)
-            CurrentHp = MaximumHp;
-
-        CurrentHp -= dmg;
-
-        if (damageDealingSprite is Aisling aisling)
-        {
-            var time = DateTime.UtcNow;
-            var estTime = time.TimeOfDay;
-            aisling.DamageCounter += dmg;
-            if (aisling.ThreatMeter + dmg >= long.MaxValue)
-                aisling.ThreatMeter = 500000;
-            aisling.ThreatMeter += dmg;
-            aisling.ThreatTimer = new WorldServerTimer(TimeSpan.FromSeconds(60));
-            ShowDmg(aisling, estTime);
-        }
-
-        if (this is Aisling damagedPlayer)
-        {
-            damagedPlayer.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
-            if (CurrentHp <= 0)
-                damagedPlayer.Client.DeathStatusCheck();
-        }
-        else
-            PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
-
-        if (dmg > 50)
-            ApplyEquipmentDurability(dmg);
-
-        OnDamaged(damageDealingSprite, dmg);
-        return;
-
-        long ApplyPvpMod()
-        {
-            if (Map.Flags.MapFlagIsSet(MapFlags.PlayerKill))
-                dmg = (long)(dmg * 0.75);
-            return dmg;
-        }
-    }
-
-    public void MagicApplyDamage(Sprite damageDealingSprite, long dmg, Spell spell, bool forceTarget = false)
-    {
-        if (!WithinRangeOf(damageDealingSprite)) return;
-        if (!Attackable) return;
-        if (!CanBeAttackedHere(damageDealingSprite)) return;
-
-        if (OffenseElement != ElementManager.Element.None)
-        {
-            dmg += (long)GetBaseDamage(damageDealingSprite, this, MonsterEnums.Elemental);
-        }
-        else
-        {
-            dmg += (long)GetBaseDamage(damageDealingSprite, this, MonsterEnums.Physical);
-        }
-
-        dmg = ApplyMagicalModifier();
-
-        if (damageDealingSprite is Aisling)
-        {
-            dmg = ApplyWeaponBonuses(damageDealingSprite, dmg);
-        }
-
-        dmg = Vulnerable(dmg);
-
-        if (this is Aisling)
-            dmg = (long)(dmg * 0.50);
-
-        if (spell == null)
-        {
-            if (!MagicDamageTarget(damageDealingSprite, ref dmg, 0, forceTarget)) return;
-        }
-        else
-        {
-            if (spell.Template.PostQualifiers.QualifierFlagIsSet(PostQualifier.IgnoreDefense) ||
-                spell.Template.PostQualifiers.QualifierFlagIsSet(PostQualifier.Both))
-                forceTarget = true;
-            if (!MagicDamageTarget(damageDealingSprite, ref dmg, spell.Template.Sound, forceTarget)) return;
-        }
-
-        OnDamaged(damageDealingSprite, dmg);
-        return;
-
-        long ApplyMagicalModifier()
-        {
-            var dmgAboveAcModifier = damageDealingSprite.Int * 0.05;
-            dmgAboveAcModifier /= 100;
-            var dmgAboveAcBoost = dmgAboveAcModifier * dmg;
-            dmg += (long)dmgAboveAcBoost;
-            return dmg;
-        }
-    }
-
-    #endregion
-
-    #region Physical Damage Application
-
-    public bool DamageTarget(Sprite damageDealingSprite, ref long dmg, byte sound, bool forced)
-    {
-        if (this is Monster monster)
-        {
-            if (damageDealingSprite is Aisling aisling)
-                if (!CanAttack(aisling))
-                {
-                    aisling.Client.SendServerMessage(ServerMessageType.OrangeBar1, $"{ServerSetup.Instance.Config.CantAttack}");
-                    return false;
-                }
-
-            if (monster.Camouflage)
-                dmg = (long)(dmg * .90);
-        }
-
-        if (Immunity && !forced)
-        {
-            PlayerNearby?.Client.SendHealthBar(this, sound);
-            return false;
-        }
-
-        if (IsAited && dmg > 100)
-            dmg -= (int)(dmg * ServerSetup.Instance.Config.AiteDamageReductionMod);
-
-        double secondary = 0;
-        var weak = false;
-
-        if (damageDealingSprite.SecondaryOffensiveElement != ElementManager.Element.None)
-        {
-            secondary = GetElementalModifier(damageDealingSprite, true);
-            if (secondary < 1.0) weak = true;
-            secondary /= 2;
-        }
-
-        var amplifier = GetElementalModifier(damageDealingSprite);
-        {
-            if (weak)
-                amplifier -= secondary;
-            else
-                amplifier += secondary;
-        }
-
-        dmg = LuckModifier(dmg);
-        dmg = ComputeDmgFromAc(dmg);
-
-        if (DrunkenFist)
-            dmg -= (int)(dmg * 0.25);
-
-        if (damageDealingSprite.DrunkenFist)
-            dmg = (int)(dmg * 1.25);
-
-        if (damageDealingSprite.NinthGateReleased)
-            dmg *= 3;
-
-        if (damageDealingSprite.Berserk)
-            dmg *= 2;
-
-        dmg = CompleteDamageApplication(damageDealingSprite, dmg, sound, amplifier);
-        var convDmg = (int)dmg;
-
-        if (convDmg > 0)
-            ApplyEquipmentDurability(convDmg);
-
-        return true;
-    }
-
-    public long ComputeDmgFromAc(long dmg)
+    private int ComputeDmgFromAc(int dmg)
     {
         var script = ScriptManager.Load<FormulaScript>(ServerSetup.Instance.Config.ACFormulaScript, this);
 
         return script?.Aggregate(dmg, (current, s) => s.Value.Calculate(this, current)) ?? dmg;
     }
 
-    #endregion
-
-    #region Magical Damage Application
-
-    public bool MagicDamageTarget(Sprite damageDealingSprite, ref long dmg, byte sound, bool forced)
+    public static ElementManager.Element CheckRandomElement(ElementManager.Element element)
     {
-        if (this is Monster monster)
-        {
-            if (damageDealingSprite is Aisling aisling)
-                if (!CanAttack(aisling))
-                {
-                    aisling.Client.SendServerMessage(ServerMessageType.OrangeBar1, $"{ServerSetup.Instance.Config.CantAttack}");
-                    return false;
-                }
+        if (element == ElementManager.Element.Random)
+            element = Generator.RandomEnumValue<ElementManager.Element>();
 
-            if (monster.Camouflage)
-                dmg = (long)(dmg * .90);
-        }
-
-        if (Immunity && !forced)
-        {
-            PlayerNearby?.Client.SendHealthBar(this, sound);
-            return false;
-        }
-
-        if (IsAited && dmg > 100)
-            dmg -= (int)(dmg * ServerSetup.Instance.Config.AiteDamageReductionMod);
-
-        double secondary = 0;
-        var weak = false;
-
-        if (damageDealingSprite.SecondaryOffensiveElement != ElementManager.Element.None)
-        {
-            secondary = GetElementalModifier(damageDealingSprite, true);
-            if (secondary < 1.0) weak = true;
-            secondary /= 2;
-        }
-
-        var amplifier = GetElementalModifier(damageDealingSprite);
-        {
-            if (weak)
-                amplifier -= secondary;
-            else
-                amplifier += secondary;
-        }
-
-        dmg = LuckModifier(dmg);
-        dmg = ComputeDmgFromWillSavingThrow(dmg);
-
-        if (DrunkenFist)
-            dmg -= (int)(dmg * 0.25);
-
-        if (damageDealingSprite.Berserk)
-            dmg *= 2;
-
-        dmg = CompleteDamageApplication(damageDealingSprite, dmg, sound, amplifier);
-        var convDmg = (int)dmg;
-
-        if (convDmg > 0)
-            ApplyEquipmentDurability(convDmg);
-
-        return true;
+        return element;
     }
 
-    public long ComputeDmgFromWillSavingThrow(long dmg)
+    public void ApplyBuff(string buffName)
     {
-        var script = ScriptManager.Load<FormulaScript>("Will Saving Throw", this);
+        if (HasBuff(buffName))
+            return;
 
-        return script?.Aggregate(dmg, (current, s) => s.Value.Calculate(this, current)) ?? dmg;
+        var buff = BuffBase.CreateInstance(buffName);
+
+        buff?.OnApplied(this);
     }
 
-    #endregion
-
-    #region Damage Application Helper Methods
-    // Methods below are in order as per execution
-
-    public double GetBaseDamage(Sprite damageDealingSprite, Sprite target, MonsterEnums type)
+    public void ApplyDamage(Sprite source, int dmg, ElementManager.Element element, byte sound = 1)
     {
-        var script = ScriptManager.Load<DamageFormulaScript>(ServerSetup.Instance.Config.BaseDamageScript, this, target, type);
-        return script?.Values.Sum(s => s.Calculate(damageDealingSprite, target, type)) ?? 1;
-    }
+        element = CheckRandomElement(element);
 
-    public long Vulnerable(long dmg)
-    {
-        if (!IsVulnerable)
+        var saved = source.OffenseElement;
         {
-            double hit = Generator.RandNumGen100();
-            double fort = Generator.RandNumGen100();
+            source.OffenseElement = element;
+            ApplyDamage(source, dmg, sound);
+            source.OffenseElement = saved;
+        }
+    }
 
-            if (hit <= Reflex)
-            {
-                PlayerNearby?.Client.SendHealthBar(this);
-                if (this is not Aisling aisling) return dmg;
-                aisling.SendTargetedClientMethod(PlayerScope.NearbyAislings, client => client.SendAnimation(92, aisling.Position));
-            }
+    public void ApplyMagicDamage(Sprite source, int dmg, ElementManager.Element element, byte sound = 1)
+    {
+        element = CheckRandomElement(element);
 
-            if (fort <= Fortitude)
-            {
-                dmg = (int)(dmg * 0.33);
-            }
+        var saved = source.OffenseElement;
+        {
+            source.OffenseElement = element;
+            ApplyMagicDamage(source, dmg, sound);
+            source.OffenseElement = saved;
+        }
+    }
+
+    public void ApplyMagicDamage(Sprite damageDealingSprite, int dmg, byte sound = 1,
+        Action<int> dmgcb = null, bool forceTarget = false)
+    {
+        int ApplyPVPMod()
+        {
+            if (Map.Flags.HasFlag(MapFlags.PlayerKill))
+                dmg = (int)(dmg * ServerSetup.Instance.Config.PvpDamageMod);
 
             return dmg;
         }
+        if (!WithinRangeOf(damageDealingSprite))
+            return;
+        if (!Attackable)
+            return;
+        if (!CanBeAttackedHere(damageDealingSprite))
+            return;
 
-        dmg *= 2;
+        dmg = ApplyPVPMod();
 
-        // Unbreakable Frozen returns damage
-        if (HasDebuff("Adv Frozen")) return dmg;
-
-        // Sleep gets removed on hit
-        if (IsSleeping) RemoveDebuff("Sleep");
-
-        // Weak Frozen status gets removed after five successful hits
-        if (!IsFrozen) return dmg;
-
-        _frozenStack += 1;
-        if (_frozenStack <= 4) return dmg;
-
-        if (HasDebuff("Frozen"))
-            RemoveDebuff("Frozen");
-        if (HasDebuff("Dark Chain"))
-            RemoveDebuff("Dark Chain");
-
-        // Reset Frozen Stack
-        _frozenStack = 0;
-
-        return dmg;
+        if (!DamageTarget(damageDealingSprite, ref dmg, sound, dmgcb, forceTarget))
+            return;
+        OnDamaged(damageDealingSprite, dmg);
     }
 
-    public long ApplyWeaponBonuses(Sprite source, long dmg)
+    public bool IsBehind(Sprite other)
     {
-        if (source is not Aisling aisling) return dmg;
-
-        if (aisling.DualWield && aisling.EquipmentManager.Equipment[3] != null && aisling.EquipmentManager.Equipment[3].Item.Template.ScriptName == "Weapon")
-        {
-            var weapon2 = aisling.EquipmentManager.Equipment[3].Item;
-            long dmg2 = 0;
-
-            switch (weapon2.GearEnhancement)
-            {
-                default:
-                case Item.GearEnhancements.None:
-                    dmg2 += Random.Shared.Next(
-                        (weapon2.Template.DmgMin + aisling.Dmg) * 1,
-                        (weapon2.Template.DmgMax + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.One:
-                    var min1 = weapon2.Template.DmgMin * 0.04;
-                    var max1 = weapon2.Template.DmgMax * 0.04;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min1) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max1) + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.Two:
-                    var min2 = weapon2.Template.DmgMin * 0.08;
-                    var max2 = weapon2.Template.DmgMax * 0.08;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min2) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max2) + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.Three:
-                    var min3 = weapon2.Template.DmgMin * 0.12;
-                    var max3 = weapon2.Template.DmgMax * 0.12;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min3) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max3) + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.Four:
-                    var min4 = weapon2.Template.DmgMin * 0.16;
-                    var max4 = weapon2.Template.DmgMax * 0.16;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min4) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max4) + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.Five:
-                    var min5 = weapon2.Template.DmgMin * 0.20;
-                    var max5 = weapon2.Template.DmgMax * 0.20;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min5) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max5) + aisling.Dmg) * 5);
-                    break;
-                case Item.GearEnhancements.Six:
-                    var min6 = weapon2.Template.DmgMin * 0.25;
-                    var max6 = weapon2.Template.DmgMax * 0.25;
-                    dmg2 += Random.Shared.Next(
-                        ((int)(weapon2.Template.DmgMin + min6) + aisling.Dmg) * 1,
-                        ((int)(weapon2.Template.DmgMax + max6) + aisling.Dmg) * 5);
-                    break;
-            }
-
-            dmg2 /= 2;
-            dmg += dmg2;
-        }
-
-        if (aisling.EquipmentManager.Equipment[1] == null) return dmg;
-        var weapon = aisling.EquipmentManager.Equipment[1].Item;
-
-        switch (weapon.GearEnhancement)
-        {
-            default:
-            case Item.GearEnhancements.None:
-                dmg += Random.Shared.Next(
-                    (weapon.Template.DmgMin + aisling.Dmg) * 1,
-                    (weapon.Template.DmgMax + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.One:
-                var min1 = weapon.Template.DmgMin * 0.04;
-                var max1 = weapon.Template.DmgMax * 0.04;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min1) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max1) + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.Two:
-                var min2 = weapon.Template.DmgMin * 0.08;
-                var max2 = weapon.Template.DmgMax * 0.08;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min2) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max2) + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.Three:
-                var min3 = weapon.Template.DmgMin * 0.12;
-                var max3 = weapon.Template.DmgMax * 0.12;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min3) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max3) + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.Four:
-                var min4 = weapon.Template.DmgMin * 0.16;
-                var max4 = weapon.Template.DmgMax * 0.16;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min4) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max4) + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.Five:
-                var min5 = weapon.Template.DmgMin * 0.20;
-                var max5 = weapon.Template.DmgMax * 0.20;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min5) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max5) + aisling.Dmg) * 5);
-                break;
-            case Item.GearEnhancements.Six:
-                var min6 = weapon.Template.DmgMin * 0.25;
-                var max6 = weapon.Template.DmgMax * 0.25;
-                dmg += Random.Shared.Next(
-                    ((int)(weapon.Template.DmgMin + min6) + aisling.Dmg) * 1,
-                    ((int)(weapon.Template.DmgMax + max6) + aisling.Dmg) * 5);
-                break;
-        }
-
-        return dmg;
+        var relationalDirection = Position.DirectionalRelationTo(other.Position);
+        var behindDirection = other.Direction.Reverse();
+        return relationalDirection == behindDirection || Position.IsInterCardinalTo(other.Position, (Direction)behindDirection);
     }
 
-    public double GetElementalModifier(Sprite damageDealingSprite, bool isSecondary = false)
+    public void ApplyDamage(Sprite damageDealingSprite, int dmg, byte sound = 1,
+        Action<int> dmgcb = null, bool forceTarget = false)
     {
-        if (damageDealingSprite == null) return 1;
-
-        if (!isSecondary)
+        int ApplyPVPMod()
         {
-            var offense = damageDealingSprite.OffenseElement;
-            var defense = DefenseElement;
+            if (Map.Flags.HasFlag(MapFlags.PlayerKill))
+                dmg = (int)(dmg * ServerSetup.Instance.Config.PvpDamageMod);
 
-            // Calc takes the sprite and sends the attackers offense element
-            var amplifier = CalculateElementalDamageMod(damageDealingSprite, offense);
-            {
-                DefenseElement = defense;
-            }
+            return dmg;
+        }
+        int ApplyBehindTargetMod()
+        {
+            if (damageDealingSprite.IsBehind(this))
+                dmg = Convert.ToInt32(dmg * ServerSetup.Instance.Config.BehindDamageMod);
+            return dmg;
+        }
+        int ApplyBehindTargetRogueMod()
+        {
+            if (damageDealingSprite.IsBehind(this))
+                dmg = Convert.ToInt32(dmg * ServerSetup.Instance.Config.RogueBehindDamageMod);
+            return dmg;
+        }
 
-            if (damageDealingSprite.Amplified == 0) return amplifier;
+        if (!WithinRangeOf(damageDealingSprite))
+            return;
+        if (!Attackable)
+            return;
+        if (!CanBeAttackedHere(damageDealingSprite))
+            return;
 
-            amplifier *= damageDealingSprite.Amplified;
+        dmg = ApplyPVPMod();
+        if (damageDealingSprite is Aisling aisling && aisling.Path == Class.Rogue)
+            dmg = ApplyBehindTargetRogueMod();
+        else
+            dmg = ApplyBehindTargetMod();
+        dmg = ApplyWeaponBonuses(damageDealingSprite, dmg);
 
-            return amplifier;
+        if (dmg > 0)
+            ApplyEquipmentDurability(dmg);
+        if (!DamageTarget(damageDealingSprite, ref dmg, sound, dmgcb, forceTarget))
+            return;
+
+        OnDamaged(damageDealingSprite, dmg);
+    }
+    public int DamageBarrier(int dmg)
+    {
+        var oldBarrier = Barrier;
+
+        if (Barrier >= dmg)
+        {
+            Barrier -= dmg;
+            dmg = 0;
+        }
+        else if (Barrier <= dmg)
+        {
+            dmg -= Barrier;
+            Barrier = 0;
         }
         else
         {
-            var offense = damageDealingSprite.SecondaryOffensiveElement;
-            var defense = DefenseElement;
-
-            var amplifier = CalculateElementalDamageMod(damageDealingSprite, offense);
-            {
-                DefenseElement = defense;
-            }
-
-            if (damageDealingSprite.Amplified == 0) return amplifier;
-
-            amplifier *= damageDealingSprite.Amplified;
-
-            return amplifier;
+            Barrier = 0;
+            dmg = 0;
         }
-    }
-
-    public double CalculateElementalDamageMod(Sprite attacker, ElementManager.Element element)
-    {
-        var script = ScriptManager.Load<ElementFormulaScript>(ServerSetup.Instance.Config.ElementTableScript, this);
-        return script?.Values.Sum(s => s.Calculate(this, attacker, element)) ?? 0.0;
-    }
-
-    private long LuckModifier(long dmg)
-    {
-        if (Luck <= 0) return dmg;
-        long mod;
-
-        switch (Luck)
-        {
-            case >= 1 and <= 5:
-                mod = (long)(dmg * 0.03);
-                dmg -= mod;
-                break;
-            case <= 10:
-                mod = (long)(dmg * 0.05);
-                dmg -= mod;
-                break;
-            case <= 15:
-                mod = (long)(dmg * 0.07);
-                dmg -= mod;
-                break;
-            case <= 16:
-                mod = (long)(dmg * 0.10);
-                dmg -= mod;
-                break;
-        }
+        if (Barrier < oldBarrier)
+            Animate(91);
 
         return dmg;
     }
-
-    private long LevelDamageMitigation(Sprite damageDealingSprite, long dmg)
+    public int CompleteDamageApplication(int dmg, byte sound, Action<int> dmgcb, double amplifier)
     {
-        if (Level <= damageDealingSprite.Level) return dmg;
-        var diff = Level - damageDealingSprite.Level;
-
-        switch (diff)
-        {
-            case >= 10 and < 25:
-                dmg = (long)(dmg * .60);
-                break;
-            case >= 25 and < 50:
-                dmg = (long)(dmg * .45);
-                break;
-            case >= 50 and < 75:
-                dmg = (long)(dmg * .30);
-                break;
-            case >= 75:
-                dmg = (long)(dmg * .15);
-                break;
-            default:
-                return dmg;
-        }
-
-        return dmg;
-    }
-
-    public void Thorns(Sprite damageDealingSprite, long dmg)
-    {
-        if (damageDealingSprite is null) return;
-        if (this is not Aisling aisling) return;
-        if (aisling.Spikes == 0) return;
-
-        var thornsDmg = aisling.Spikes * 0.03;
-        Math.Clamp(thornsDmg, 1, int.MaxValue);
-        dmg = (long)(thornsDmg * dmg);
-
-        if (dmg > int.MaxValue)
-        {
-            dmg = int.MaxValue;
-        }
-
-        var convDmg = (int)dmg;
-        aisling.SendTargetedClientMethod(PlayerScope.NearbyAislings, client => client.SendAnimation(163, damageDealingSprite.Position));
-        damageDealingSprite.CurrentHp -= convDmg;
-    }
-
-    #endregion
-
-    #region Complete Damage Application
-
-    public long CompleteDamageApplication(Sprite damageDealingSprite, long dmg, byte sound, double amplifier)
-    {
-        if (dmg <= 0) dmg = 1;
+        if (dmg <= 0)
+            dmg = 1;
 
         if (CurrentHp > MaximumHp)
             CurrentHp = MaximumHp;
 
-        var dmgApplied = (long)Math.Abs(dmg * amplifier);
-        var finalDmg = LevelDamageMitigation(damageDealingSprite, dmgApplied);
-        CurrentHp -= finalDmg;
+        var dmgApplied = (int)Math.Abs(dmg * amplifier);
 
-        if (this is Aisling aisling)
+        if (Barrier > 0)
+            dmgApplied = DamageBarrier(dmgApplied);
+
+        CurrentHp -= dmgApplied;
+
+        if (CurrentHp < 0)
+            CurrentHp = 0;
+
+        var hpBar = new ServerFormat13
         {
-            aisling.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
-            if (CurrentHp <= 0)
-                aisling.Client.DeathStatusCheck();
-        }
-        else
-            PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
+            Serial = Serial,
+            Health = (ushort)((double)100 * CurrentHp / MaximumHp),
+            Sound = sound
+        };
+        if (sound < 127)
+            SendSound(sound);
 
-        return finalDmg;
+        Show(Scope.NearbyAislings, hpBar);
+        {
+            dmgcb?.Invoke(dmgApplied);
+        }
+
+        return dmgApplied;
+    }
+    public bool DamageTarget(Sprite damageDealingSprite,
+        ref int dmg, byte sound,
+        Action<int> dmgcb, bool forced)
+    {
+        if (this is Monster monster && damageDealingSprite is Aisling aisling)
+        {
+            if (HasDebuff("expert analysis"))
+            {
+                Analyze(monster, aisling);
+                RemoveDebuff("expert analysis");
+            }
+            var stillaround = false;
+            var objs = GetObjects(Map, i => i.Serial != Serial, Get.Aislings);
+
+            if (monster.Owner != null)
+                foreach (var ais in objs)
+                    if (ais is Aisling aisling1 && (aisling1.Username.ToLower() == monster.Owner.ToLower()))
+                        stillaround = true;
+
+            if (!stillaround)
+                monster.Owner = null;
+
+            if (monster.Owner == null)
+                monster.Owner = aisling.Username;
+        }
+
+        if (Immunity)
+        {
+            var empty = new ServerFormat13
+            {
+                Serial = Serial,
+                Health = byte.MaxValue,
+                Sound = sound
+            };
+
+            Show(Scope.NearbyAislings, empty);
+            return false;
+        }
+
+        if (IsSleeping)
+        {
+            if (ServerSetup.Instance.Config.SleepProcsDoubleDmg && !HasDebuff("siolaidh"))
+                dmg <<= 1;
+
+            RemoveDebuff("pramh");
+            RemoveDebuff("mor pramh");
+        }
+
+        if (IsMist && (dmg > 5))
+        {
+            var dmg1 = dmg * 0.95;
+            dmg = Convert.ToInt32(dmg1);
+        }
+
+        if (IsDragon && (dmg > 5))
+        {
+            var reduction = dmg * 0.8;
+            dmg = Convert.ToInt32(reduction);
+        }
+
+        if (IsPhoenix && (dmg > 5))
+        {
+            var penalty = dmg * 1.2;
+            dmg = Convert.ToInt32(penalty);
+        }
+
+        if (IsAited && (dmg > 5))
+            dmg /= ServerSetup.Instance.Config.AiteDamageReductionMod;
+
+        Target ??= damageDealingSprite;
+
+        var amplifier = GetElementalModifier(damageDealingSprite);
+        {
+            dmg = ComputeDmgFromAc(dmg);
+            dmg = CompleteDamageApplication(dmg, sound, dmgcb, amplifier);
+        }
+
+        return true;
     }
 
-    public void ApplyEquipmentDurability(long dmg)
+    private void Analyze(Sprite target, Aisling aisling)
     {
-        if (this is Aisling aisling && aisling.EquipmentDamageTaken++ % 2 == 0 && dmg > 100)
+        var n = "g";
+        var o = "g";
+        switch (target.DefenseElement)
+        {
+            case ElementManager.Element.Earth:
+                {
+                    n = "q";
+                }
+                break;
+            case ElementManager.Element.Wind:
+                {
+                    n = "c";
+                }
+                break;
+            case ElementManager.Element.Fire:
+                {
+                    n = "b";
+                }
+                break;
+            case ElementManager.Element.Water:
+                {
+                    n = "v";
+                }
+                break;
+            case ElementManager.Element.Light:
+                {
+                    n = "w";
+                }
+                break;
+            case ElementManager.Element.Dark:
+                {
+                    n = "m";
+                }
+                break;
+            case ElementManager.Element.None:
+                {
+                    n = "u";
+                }
+                break;
+
+        }
+        switch (target.OffenseElement)
+        {
+            case ElementManager.Element.Earth:
+                {
+                    o = "q";
+                }
+                break;
+            case ElementManager.Element.Wind:
+                {
+                    o = "c";
+                }
+                break;
+            case ElementManager.Element.Fire:
+                {
+                    o = "b";
+                }
+                break;
+            case ElementManager.Element.Water:
+                {
+                    o = "v";
+                }
+                break;
+            case ElementManager.Element.Light:
+                {
+                    o = "w";
+                }
+                break;
+            case ElementManager.Element.Dark:
+                {
+                    o = "n";
+                }
+                break;
+            case ElementManager.Element.None:
+                {
+                    o = "u";
+                }
+                break;
+        }
+        var titleText = string.Format("{0,33}", "{=sExpert Analysis");
+        var levelText = string.Format("{0,-32} {1,-25}", "{=sLevel:{=u " + target.Level, "{=sMagic Resistance:{=u " + target.BonusMr);
+        var hpmpText = string.Format("{0,-32} {1,-25}", "{=sCurrent Health:{=u " + target.CurrentHp, "{=sCurrent Mana:{=u " + target.CurrentMp);
+        var elementText2 = string.Format("{0,-32} {1,-25}", "{=sOffense Element: " + "{=" + o + target.OffenseElement, "{=sDefense Element: " + "{=" + n + target.DefenseElement);
+        aisling.Client.SendMessage(0x08, $"{titleText}\n\n{levelText}\n{hpmpText}\n{elementText2}");
+    }
+
+    public void ApplyDebuff(string debuffName)
+    {
+        if (HasDebuff(debuffName)) return;
+        var debuff = DebuffBase.CreateInstance(debuffName);
+        debuff?.OnApplied(this);
+    }
+
+    public void ApplyEquipmentDurability(int dmg)
+    {
+        if (this is Aisling aisling && (aisling.DamageCounter++ % 2 == 0) && (dmg > 0) && !aisling.Map.Flags.HasFlag(MapFlags.PlayerKill))
             aisling.EquipmentManager.DecreaseDurability();
     }
 
-    public void OnDamaged(Sprite source, long dmg)
+    public int ApplyWeaponBonuses(Sprite source, int dmg)
     {
-        (this as Aisling)?.Client.SendAttributes(StatUpdateType.Vitality);
-        if (source is not Aisling aisling) return;
+        if (source is not Aisling aisling) return dmg;
+        if (aisling.EquipmentManager == null || (aisling.EquipmentManager.Weapon?.Item != null && aisling.Weapon > 0)) return dmg;
 
-        var time = DateTime.UtcNow;
-        var estTime = time.TimeOfDay;
-        aisling.DamageCounter += dmg;
-        if (aisling.ThreatMeter + dmg >= long.MaxValue)
-            aisling.ThreatMeter = (long)(long.MaxValue * .95);
-        aisling.ThreatMeter += dmg;
-        if (aisling.GameSettings.DmgNumbers)
-            ShowDmg(aisling, estTime);
+        int dam = aisling.BonusDmg;
+        int hit = aisling.BonusHit;
 
-        if (this is not Monster monster) return;
-        if (monster.Template?.ScriptName == null) return;
-        monster.Scripts?.First().Value.OnDamaged(aisling.Client, dmg, source);
+        if (aisling.Weapon > 0) return dmg;
+        if (hit > dam) hit = dam - 1;
+
+        dmg += Generator.Random.Next(hit, dam);
+        return dmg;
     }
 
-    public void ShowDmg(Aisling aisling, TimeSpan elapsedTime)
+    public double CalculateElementalDamageMod(Element element)
     {
-        if (!aisling.AttackDmgTrack.Update(elapsedTime)) return;
-        aisling.AttackDmgTrack.Delay = elapsedTime + TimeSpan.FromSeconds(1);
+        var script = ScriptManager.Load<ElementFormulaScript>(ServerSetup.Instance.Config.ElementTableScript, this);
 
-        var dmgShow = aisling.DamageCounter.ToString();
-        aisling.Client.SendPublicMessage(aisling.Serial, PublicMessageType.Chant, $"{dmgShow}");
-        aisling.DamageCounter = 0;
+        return script?.Values.Sum(s => s.Calculate(this, element)) ?? 0.0;
     }
-
-    #endregion
-
-    #region Status
-
-    public void UpdateBuffs(TimeSpan elapsedTime)
+    public int GetBaseDamage(Sprite target, MonsterDamageType type)
     {
-        if (this is Aisling secondaryCheck && !IsEnhancingSecondaryOffense)
-        {
-            if (secondaryCheck.EquipmentManager.Shield == null &&
-                secondaryCheck.SecondaryOffensiveElement != ElementManager.Element.None)
-                secondaryCheck.SecondaryOffensiveElement = ElementManager.Element.None;
-        }
-
-        var buffs = Buffs.Values;
-
-        Parallel.ForEach(buffs, (b) =>
-        {
-            if (this is Aisling aisling)
-            {
-                aisling.Client.EnqueueBuffUpdatedEvent(this, b, elapsedTime);
-                StatusBarDisplayUpdateBuff(b);
-            }
-            else
-            {
-                if (Alive)
-                    b.Update(this, elapsedTime);
-            }
-        });
+        var script = ScriptManager.Load<DamageFormulaScript>(ServerSetup.Instance.Config.BaseDamageScript, this, target, type);
+        return script?.Values.Sum(s => s.Calculate(this, target, type)) ?? 1;
     }
-
-    public void UpdateDebuffs(TimeSpan elapsedTime)
+    public string GetDebuffName(Func<DebuffBase, bool> p)
     {
-        var debuffs = Debuffs.Values;
-
-        Parallel.ForEach(debuffs, (d) =>
-        {
-            if (this is Aisling aisling)
-            {
-                aisling.Client.EnqueueDebuffUpdatedEvent(this, d, elapsedTime);
-                StatusBarDisplayUpdateDebuff(d);
-            }
-            else
-            {
-                if (Alive)
-                    d.Update(this, elapsedTime);
-            }
-        });
-    }
-
-    public void StatusBarDisplayUpdateBuff(Buff buff)
-    {
-        if (this is not Aisling aisling) return;
-        var colorInt = byte.MinValue;
-
-        if (buff.TimeLeft.IntIsWithin(-3, 0))
-            colorInt = (byte)StatusBarColor.Off;
-        else if (buff.TimeLeft.IntIsWithin(1, 10))
-            colorInt = (byte)StatusBarColor.Blue;
-        else if (buff.TimeLeft.IntIsWithin(11, 30))
-            colorInt = (byte)StatusBarColor.Green;
-        else if (buff.TimeLeft.IntIsWithin(31, 45))
-            colorInt = (byte)StatusBarColor.Yellow;
-        else if (buff.TimeLeft.IntIsWithin(46, 60))
-            colorInt = (byte)StatusBarColor.Orange;
-        else if (buff.TimeLeft.IntIsWithin(61, 120))
-            colorInt = (byte)StatusBarColor.Red;
-        else if (buff.TimeLeft.IntIsWithin(121, int.MaxValue))
-            colorInt = (byte)StatusBarColor.White;
-
-        aisling.Client.SendEffect((EffectColor)colorInt, buff.Icon);
-    }
-
-    public void StatusBarDisplayUpdateDebuff(Debuff debuff)
-    {
-        if (this is not Aisling aisling) return;
-        var colorInt = byte.MinValue;
-
-        if (debuff.TimeLeft.IntIsWithin(-3, 0))
-            colorInt = (byte)StatusBarColor.Off;
-        else if (debuff.TimeLeft.IntIsWithin(1, 10))
-            colorInt = (byte)StatusBarColor.Blue;
-        else if (debuff.TimeLeft.IntIsWithin(11, 30))
-            colorInt = (byte)StatusBarColor.Green;
-        else if (debuff.TimeLeft.IntIsWithin(31, 45))
-            colorInt = (byte)StatusBarColor.Yellow;
-        else if (debuff.TimeLeft.IntIsWithin(46, 60))
-            colorInt = (byte)StatusBarColor.Orange;
-        else if (debuff.TimeLeft.IntIsWithin(61, 120))
-            colorInt = (byte)StatusBarColor.Red;
-        else if (debuff.TimeLeft.IntIsWithin(121, int.MaxValue))
-            colorInt = (byte)StatusBarColor.White;
-
-        aisling.Client.SendEffect((EffectColor)colorInt, debuff.Icon);
-    }
-
-    /// <summary>
-    /// Reduces threat to player over time. Also resets the persistent message.
-    /// </summary>
-    public void ThreatGeneratedSubsided(Aisling aisling)
-    {
-        var time = false;
-        if (!_threatControl.IsRunning)
-        {
-            _threatControl.Start();
-        }
-
-        if (!aisling.ThreatTimer.Disabled)
-        {
-            time = _threatControl.Elapsed.TotalSeconds > aisling.ThreatTimer.Delay.TotalSeconds;
-        }
-
-        if (!time) return;
-        if (aisling.MonsterKillCounters.Values.Any(killRecord => DateTime.UtcNow.Subtract(killRecord.TimeKilled) <= TimeSpan.FromSeconds(60))) return;
-
-        _threatControl.Restart();
-        aisling.ThreatMeter = 0;
-        aisling.Client.SendServerMessage(ServerMessageType.PersistentMessage, "");
-    }
-
-    private bool CanUpdate()
-    {
-        if (CantMove || IsBlind) return false;
-
-        if (this is Monster || this is Mundane)
-            if (CurrentHp == 0)
-                return false;
-
-        if (ServerSetup.Instance.Config.CanMoveDuringReap) return true;
-
-        if (this is not Aisling { Skulled: true } aisling) return true;
-
-        aisling.Client.SystemMessage(ServerSetup.Instance.Config.ReapMessageDuringAction);
-        return false;
-    }
-
-    public bool HasBuff(string buff)
-    {
-        if (Buffs == null || Buffs.IsEmpty)
-            return false;
-
-        return Buffs.ContainsKey(buff);
-    }
-
-    public bool HasDebuff(string debuff)
-    {
-        if (Debuffs == null || Debuffs.IsEmpty)
-            return false;
-
-        return Debuffs.ContainsKey(debuff);
-    }
-
-    public bool HasDebuff(Func<Debuff, bool> p)
-    {
-        if (Debuffs == null || Debuffs.IsEmpty)
-            return false;
-
-        return Debuffs.Select(i => i.Value).FirstOrDefault(p) != null;
-    }
-
-    public string GetDebuffName(Func<Debuff, bool> p)
-    {
-        if (Debuffs == null || Debuffs.IsEmpty)
+        if ((Debuffs == null) || (Debuffs.Count == 0))
             return string.Empty;
 
         return Debuffs.Select(i => i.Value)
             .FirstOrDefault(p)
             ?.Name;
     }
+    public double GetElementalModifier(Sprite damageDealingSprite)
+    {
+        if (damageDealingSprite == null)
+            return 1;
 
-    public void RemoveAllBuffs()
+        var element = CheckRandomElement(damageDealingSprite.OffenseElement);
+        var saved = DefenseElement;
+
+        var amplifier = CalculateElementalDamageMod(element);
+        {
+            DefenseElement = saved;
+        }
+
+        if (damageDealingSprite.Amplified == 0)
+            return amplifier;
+
+        amplifier *= Amplified == 1
+            ? ServerSetup.Instance.Config.FasNadurStrength
+            : ServerSetup.Instance.Config.MorFasNadurStrength;
+
+        return amplifier;
+    }
+    public void OnDamaged(Sprite source, int dmg)
+    {
+        (this as Aisling)?.Client.SendStats(StatusFlags.Vitality | StatusFlags.ExpGold);
+        (source as Aisling)?.Client.SendStats(StatusFlags.Vitality | StatusFlags.ExpGold);
+
+        if (!(this is Monster))
+        {
+            if (this is Aisling player)
+                if (player.EquipmentManager.Armor is not null)
+                    ApplyArmorProc(player);
+            return;
+        }
+
+        if (!(source is Aisling aisling))
+            return;
+        var monsterScripts = (this as Monster)?.Scripts;
+
+        if (monsterScripts == null)
+            return;
+
+        foreach (var script in monsterScripts.Values)
+            script?.OnDamaged(aisling?.Client, dmg, source);
+    }
+    public bool HasBuff(string buff)
+    {
+        if ((Buffs == null) || (Buffs.Count == 0))
+            return false;
+
+        return Buffs.ContainsKey(buff);
+    }
+    public bool HasDebuff(string debuff)
+    {
+        if ((Debuffs == null) || (Debuffs.Count == 0))
+            return false;
+
+        return Debuffs.ContainsKey(debuff);
+    }
+    private bool HasDebuff(Func<DebuffBase, bool> p)
+    {
+        if ((Debuffs == null) || (Debuffs.Count == 0))
+            return false;
+
+        return Debuffs.Select(i => i.Value).FirstOrDefault(p) != null;
+    }
+    private void RemoveAllBuffs()
     {
         if (Buffs == null)
             return;
@@ -2164,8 +1241,25 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         foreach (var buff in Buffs)
             RemoveBuff(buff.Key);
     }
+    private void DispelBuffs()
+    {
+        if (Buffs == null)
+            return;
 
-    public void RemoveAllDebuffs()
+        foreach (var buff in Buffs)
+            if ((buff.Key != "mines") && (buff.Key != "Industry") && (buff.Key != "true sight")
+                && !buff.Key.ContainsI("alliance") && !buff.Key.ContainsI("gathering") && !buff.Key.ContainsI("inspiration"))
+                RemoveBuff(buff.Key);
+    }
+    private void DispelDebuffs()
+    {
+        if (Debuffs == null)
+            return;
+        foreach (var debuff in Debuffs)
+            if ((debuff.Key != "herbalism") && (debuff.Key != "skulled") && (debuff.Key != "arrested"))
+                RemoveDebuff(debuff.Key, true);
+    }
+    private void RemoveAllDebuffs()
     {
         if (Debuffs == null)
             return;
@@ -2173,65 +1267,183 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         foreach (var debuff in Debuffs)
             RemoveDebuff(debuff.Key);
     }
-
     public bool RemoveBuff(string buff)
     {
-        if (!HasBuff(buff)) return false;
+        if (!HasBuff(buff))
+            return false;
 
-        lock (Buffs)
-        {
-            try
-            {
-                var buffObj = Buffs[buff];
-                buffObj?.OnEnded(this, buffObj);
-            }
-            catch
-            {
-                // ignored
-            }
-        }
+        var buffObj = Buffs[buff];
+        buffObj?.OnEnded(this);
 
         return true;
     }
-
     public void RemoveBuffsAndDebuffs()
     {
         RemoveAllBuffs();
         RemoveAllDebuffs();
     }
-
+    public void DispelBuffsAndDebuffs()
+    {
+        DispelBuffs();
+        DispelDebuffs();
+    }
     public bool RemoveDebuff(string debuff, bool cancelled = false)
     {
-        if (!cancelled && debuff == "Skulled") return true;
-        if (!HasDebuff(debuff)) return false;
+        if (!cancelled && (debuff == "skulled"))
+            return true;
 
-        lock (Debuffs)
-        {
-            try
-            {
-                var debuffObj = Debuffs[debuff];
-                if (debuffObj != null)
-                {
-                    debuffObj.Cancelled = cancelled;
-                    debuffObj.OnEnded(this, debuffObj);
-                }
-            }
-            catch
-            {
-                // ignored
-            }
-        }
+        if (!HasDebuff(debuff))
+            return false;
+
+        var buffObj = Debuffs[debuff];
+
+        if (buffObj == null)
+            return false;
+
+        buffObj.Cancelled = cancelled;
+        buffObj.OnEnded(this);
 
         return true;
     }
+    public void ApplyArmorProc(Aisling aisling)
+    {
+        if (aisling.EquipmentManager.Armor is not null)
+        {
+            if (aisling.EquipmentManager.Armor.Item.Template.Flags.HasFlag(ItemFlags.RegenProc))
+            {
+                var diceRoll = RollD10000();
+                if (diceRoll <= 75)
+                {
+                    if (!aisling.HasBuff("beag aiseag beatha") && !aisling.HasBuff("aiseag beatha") && !aisling.HasBuff("mor aiseag beatha"))
+                        aisling.ApplyBuff("beag aiseag beatha");
+                }
+            }
+            if (aisling.EquipmentManager.Armor.Item.Template.Flags.HasFlag(ItemFlags.RefreshProc))
+            {
+                var diceRoll = RollD10000();
+                if (diceRoll <= 75)
+                {
+                    if (!aisling.HasBuff("beag aiseag spiorad") && !aisling.HasBuff("aiseag spiorad") && !aisling.HasBuff("mor aiseag spiorad"))
+                        aisling.ApplyBuff("beag aiseag spiorad");
+                }
+            }
+        }
+    }
+    protected virtual int RollD10000() => Random.Shared.Next(1, 10001);
+    #endregion
 
+    #region Status
+    public void UpdateAddAndRemove()
+    {
+        Show(Scope.NearbyAislings, new ServerFormat0E(Serial));
+        Show(Scope.NearbyAislings, new ServerFormat07([this]));
+    }
+    public void UpdateBuffs(TimeSpan elapsedTime)
+    {
+        foreach (var (_, buff) in Buffs)
+        {
+            StatusBarDisplayUpdateBuff(buff);
+
+            if (buff.TimeLeft <= 1)
+            {
+                buff.OnEnded(this);
+                return;
+            }
+            buff.Update(this, elapsedTime);
+        }
+    }
+    public void UpdateDebuffs(TimeSpan elapsedTime)
+    {
+        foreach (var (_, debuff) in Debuffs)
+        {
+            StatusBarDisplayUpdateDebuff(debuff);
+
+            if (debuff.TimeLeft <= 1)
+            {
+                debuff.OnEnded(this);
+
+                return;
+            }
+
+            debuff.Update(this, elapsedTime);
+        }
+    }
+    public void StatusBarDisplayUpdateBuff(BuffBase buffBase)
+    {
+        if (this is not Aisling aisling)
+            return;
+
+        var countDown = buffBase.Length - buffBase.Timer.Tick;
+        var previousColor = buffBase.CurrentColor;
+        buffBase.TimeLeft = countDown;
+
+        if (buffBase.TimeLeft.IsWithin(0, 1))
+            buffBase.CurrentColor = StatusBarColor.Off;
+        else if (buffBase.TimeLeft.IsWithin(1, 20))
+            buffBase.CurrentColor = StatusBarColor.Blue;
+        else if (buffBase.TimeLeft.IsWithin(21, 30))
+            buffBase.CurrentColor = StatusBarColor.Green;
+        else if (buffBase.TimeLeft.IsWithin(31, 40))
+            buffBase.CurrentColor = StatusBarColor.Yellow;
+        else if (buffBase.TimeLeft.IsWithin(41, 50))
+            buffBase.CurrentColor = StatusBarColor.Orange;
+        else if (buffBase.TimeLeft.IsWithin(51, 60))
+            buffBase.CurrentColor = StatusBarColor.Red;
+        else if (buffBase.TimeLeft.IsWithin(61, short.MaxValue))
+            buffBase.CurrentColor = StatusBarColor.White;
+        if (previousColor != buffBase.CurrentColor)
+            aisling.Client.Send(new ServerFormat3A(buffBase.Icon, (byte)buffBase.CurrentColor));
+    }
+    public void StatusBarDisplayUpdateDebuff(DebuffBase deBuffBase)
+    {
+        if (this is not Aisling aisling)
+            return;
+
+        var countDown = deBuffBase.Length - deBuffBase.Timer.Tick;
+        var previousColor = deBuffBase.CurrentColor;
+        deBuffBase.TimeLeft = countDown;
+
+        if (deBuffBase.TimeLeft.IsWithin(0, 1))
+            deBuffBase.CurrentColor = StatusBarColor.Off;
+        else if (deBuffBase.TimeLeft.IsWithin(1, 20))
+            deBuffBase.CurrentColor = StatusBarColor.Blue;
+        else if (deBuffBase.TimeLeft.IsWithin(21, 30))
+            deBuffBase.CurrentColor = StatusBarColor.Green;
+        else if (deBuffBase.TimeLeft.IsWithin(31, 40))
+            deBuffBase.CurrentColor = StatusBarColor.Yellow;
+        else if (deBuffBase.TimeLeft.IsWithin(41, 50))
+            deBuffBase.CurrentColor = StatusBarColor.Orange;
+        else if (deBuffBase.TimeLeft.IsWithin(51, 60))
+            deBuffBase.CurrentColor = StatusBarColor.Red;
+        else if (deBuffBase.TimeLeft.IsWithin(61, short.MaxValue))
+            deBuffBase.CurrentColor = StatusBarColor.White;
+
+        if (previousColor != deBuffBase.CurrentColor)
+            aisling.Client.Send(new ServerFormat3A(deBuffBase.Icon, (byte)deBuffBase.CurrentColor));
+    }
+    private bool CanUpdate()
+    {
+        if (IsSleeping || IsFrozen || IsArrested || IsPetrified)
+            return false;
+        if (this is Monster || this is Mundane)
+            if (CurrentHp == 0)
+                return false;
+        if (ServerSetup.Instance.Config.CanMoveDuringReap || this is not Aisling aisling)
+            return true;
+        if (!aisling.Skulled)
+            return true;
+        aisling.Client.SystemMessage(ServerSetup.Instance.Config.ReapMessageDuringAction);
+        return false;
+    }
     #endregion
 
     #region Sprite Methods
 
+    public TSprite Cast<TSprite>() where TSprite : Sprite => this as TSprite;
+
     public void UpdateAddAndRemove()
     {
-        foreach (var playerNearby in AislingsEarShotNearby())
+        foreach (var playerNearby in AislingsNearby())
         {
             uint objectId;
 
@@ -2248,30 +1460,52 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     public void Remove()
     {
-        var nearby = AislingsEarShotNearby();
-        uint objectId;
+        var nearby = GetObjects<Aisling>(null, i => (i != null) && i.LoggedIn);
 
-        if (this is Item item)
-            objectId = item.ItemVisibilityId;
-        else
-            objectId = Serial;
-        
         foreach (var o in nearby)
-            o?.Client?.SendRemoveObject(objectId);
+            o?.Client?.SendRemoveObject(Serial);
 
         DeleteObject();
     }
 
-    public void HideFrom(Aisling nearbyAisling)
+    public void HideFrom(Aisling nearbyAisling) => nearbyAisling.Client.SendRemoveObject(Serial);
+
+    public void Animate(ushort effect, byte speed = 100)
     {
-        uint objectId;
+        var nearby = GetObjects<Aisling>(null, i => (i != null) && i.LoggedIn).FirstOrDefault();
+        nearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(effect, null, Serial, speed, effect, Serial));
+    }
 
-        if (this is Item item)
-            objectId = item.ItemVisibilityId;
-        else
-            objectId = Serial;
+    public void SendSound(byte sound, PlayerScope scope = PlayerScope.NearbyAislings)
+    {
+        if (this is not Aisling aisling) return;
+        if (sound < 255)
+            aisling.Client.SendSound(sound, false);
+    }
 
-        nearbyAisling.Client.SendRemoveObject(objectId);
+    public Aisling SendAnimation(ushort effect, Sprite to, Sprite from, ushort speed = 100)
+    {
+        var nearby = GetObjects<Aisling>(null, i => (i != null) && i.LoggedIn).FirstOrDefault();
+        nearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(0, null, to.Serial, speed, effect, from.Serial));
+        return Aisling(this);
+    }
+
+    public void SendAnimation(ushort effect, Position pos)
+    {
+        var nearby = GetObjects<Aisling>(null, i => (i != null) && i.LoggedIn).FirstOrDefault();
+        nearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendAnimation(effect, pos));
+    }
+
+    public void WarpTo(Position position)
+    {
+        var nearby = GetObjects<Aisling>(null, i => (i != null) && i.LoggedIn).FirstOrDefault();
+
+        nearby?.Client?.SendRemoveObject(Serial);
+
+        XPos = position.X;
+        YPos = position.Y;
+
+        nearby?.Client?.SendVisibleEntities([this]);
     }
 
     private void DeleteObject()
@@ -2289,4 +1523,150 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     }
 
     #endregion
+
+    private Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1)
+    {
+        var empty = Position;
+        var blocks = target.Position.SurroundingContent(Map);
+
+        if (blocks.Length <= 0)
+            return empty;
+
+        var selections = blocks.Where(i => (i.Content == TileContent.None)
+                                           || (i.Content == TileContent.Item)
+                                           || (i.Content == TileContent.Money)).ToArray();
+        var selection = selections
+            .OrderBy(i => i.Position.DistanceFrom(Position))
+            .LastOrDefault();
+
+        if (selection != null)
+            empty = selection.Position;
+
+        return empty;
+    }
+
+    private IEnumerable<Sprite> GetAllInFront(int tileCount = 1)
+    {
+        var results = new List<Sprite>();
+
+        for (var i = 1; i <= tileCount; i++)
+            switch (Direction)
+            {
+                case 0:
+                    results.AddRange(GetSprites(XPos, YPos - i));
+                    break;
+
+                case 1:
+                    results.AddRange(GetSprites(XPos + i, YPos));
+                    break;
+
+                case 2:
+                    results.AddRange(GetSprites(XPos, YPos + i));
+                    break;
+
+                case 3:
+                    results.AddRange(GetSprites(XPos - i, YPos));
+                    break;
+            }
+
+        return results;
+    }
+
+    private IEnumerable<Sprite> MonsterGetInFront(int tileCount = 1)
+    {
+        var results = new List<Sprite>();
+
+        for (var i = 1; i <= tileCount; i++)
+            switch (Direction)
+            {
+                case 0:
+                    results.AddRange(MonsterGetDamageableSprites(XPos, YPos - i));
+                    break;
+
+                case 1:
+                    results.AddRange(MonsterGetDamageableSprites(XPos + i, YPos));
+                    break;
+
+                case 2:
+                    results.AddRange(MonsterGetDamageableSprites(XPos, YPos + i));
+                    break;
+
+                case 3:
+                    results.AddRange(MonsterGetDamageableSprites(XPos - i, YPos));
+                    break;
+            }
+
+        return results;
+    }
+
+    public List<Sprite> GetAllInFront(Sprite sprite, int tileCount = 1) => GetAllInFront(tileCount).Where(i => (i != null) && (i.Serial != sprite.Serial)).ToList();
+
+    public List<Sprite> GetAllInFront(int tileCount = 1, bool intersect = false) => GetAllInFront(tileCount).ToList();
+
+    public Position GetFromAllSidesEmpty(Sprite sprite, Sprite target, int tileCount = 1) => GetFromAllSidesEmpty(target, tileCount);
+
+    public Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1, bool intersect = false) => GetFromAllSidesEmpty(target, tileCount);
+
+    public List<Sprite> MonsterGetInFront(int tileCount = 1, bool intersect = false) => MonsterGetInFront(tileCount).ToList();
+
+    private IEnumerable<Sprite> AislingGetOnlyMonsterDamageableSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.Monsters);
+
+    private IEnumerable<Sprite> MonsterGetDamageableSprites(int x, int y) => GetObjects(Map, i => (i.XPos == x) && (i.YPos == y), Get.MonsterDamage);
+
+    public Position GetPendingChargePosition(int warp, Sprite sprite)
+    {
+        var pendingX = X;
+        var pendingY = Y;
+
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 0)
+                pendingY--;
+            if (!sprite.Map.IsWall(pendingX, pendingY))
+                continue;
+            pendingY++;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 1)
+                pendingX++;
+            if (!sprite.Map.IsWall(pendingX, pendingY))
+                continue;
+            pendingX--;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 2)
+                pendingY++;
+            if (!sprite.Map.IsWall(pendingX, pendingY))
+                continue;
+            pendingY--;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 3)
+                pendingX--;
+            if (!sprite.Map.IsWall(pendingX, pendingY))
+                continue;
+            pendingX++;
+            break;
+        }
+
+        return new Position(pendingX, pendingY);
+    }
+
+    public int DistanceTo(Position spritePos, Position inputPos)
+    {
+        var spriteX = spritePos.X;
+        var spriteY = spritePos.Y;
+        var inputX = inputPos.X;
+        var inputY = inputPos.Y;
+        var diffX = Math.Abs(spriteX - inputX);
+        var diffY = Math.Abs(spriteY - inputY);
+
+        return diffX + diffY;
+    }
 }

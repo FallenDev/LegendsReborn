@@ -1,63 +1,84 @@
-﻿using System.Security.Cryptography;
+﻿using System.Collections.ObjectModel;
+using System.Security.Cryptography;
+using System.Text;
+
 using ServiceStack;
 
 namespace Darkages.Common;
 
 public static class Generator
 {
-    public static int GenerateDeterminedNumberRange(int min, int max) => Random.Shared.Next(min, max + 1);
+    public static Collection<int> GeneratedNumbers;
+    public static Collection<string> GeneratedStrings;
+    public static Random Random;
 
-    public static int GenerateMapLocation(int rowCol) => RandomNumberGenerator.GetInt32(rowCol + 1);
+    public static volatile int Serial;
 
-    public static int RandNumGen3() => RandomNumberGenerator.GetInt32(3);
-    public static int RandNumGen10() => RandomNumberGenerator.GetInt32(10);
-    public static int RandNumGen20() => RandomNumberGenerator.GetInt32(20);
-    public static int RandNumGen100() => RandomNumberGenerator.GetInt32(100);
+    static Generator()
+    {
+        Random = new Random();
+        GeneratedNumbers = new Collection<int>();
+        GeneratedStrings = new Collection<string>();
+    }
 
-    public static double RandomNumPercentGen() => Random.Shared.NextDouble();
+    public static string CreateString(int size)
+    {
+        lock (Random)
+        {
+            var value = new StringBuilder();
+
+            for (var i = 0; i < size; i++)
+                if (Random != null)
+                {
+                    var binary = Random.Next(0, 2);
+
+                    switch (binary)
+                    {
+                        case 0:
+                            value.Append(Convert.ToChar(Random.Next(65, 91)));
+                            break;
+
+                        case 1:
+                            value.Append(Random.Next(1, 10));
+                            break;
+                    }
+                }
+
+            return value.ToString();
+        }
+    }
+
+    public static int GenerateNumber()
+    {
+        int id;
+
+        do
+            lock (Random)
+                id = Random.Next();
+        while (GeneratedNumbers.Contains(id));
+
+        return id;
+    }
+
+    public static string GenerateString(int size)
+    {
+        string s;
+
+        do
+            s = CreateString(size);
+        while (GeneratedStrings.Contains(s));
+
+        GeneratedStrings.Add(s);
+
+        return s;
+    }
 
     public static T RandomEnumValue<T>()
     {
-        var v = Enum.GetValues(typeof(T));
-        return (T)v.GetValue(RandomNumberGenerator.GetInt32(v.Length));
-    }
-
-    /// <summary>
-    /// Extension method for IEnumerables, pulls a random element from the collection
-    /// </summary>
-    /// <returns>Random element from collection</returns>
-    public static T RandomIEnum<T>(this IEnumerable<T> enumerable)
-    {
-        return enumerable.RandomElementUsing();
-    }
-
-    private static T RandomElementUsing<T>(this IEnumerable<T> enumerable)
-    {
-        var enumeratedArray = enumerable as T[] ?? enumerable.ToArray();
-        if (enumeratedArray.IsEmpty()) return default;
-        var index = Random.Shared.Next(0, enumeratedArray.Length);
-        return enumeratedArray.ElementAt(index);
-    }
-
-    public static long RandomMonsterStatVariance(long value)
-    {
-        var variance = RandomNumberGenerator.GetInt32(9);
-        var percent = variance switch
+        lock (Random)
         {
-            1 => 0.02,
-            2 => 0.04,
-            3 => 0.06,
-            4 => 0.08,
-            5 => 0.1,
-            6 => 0.12,
-            7 => 0.14,
-            8 => 0.16,
-            _ => 0.18
-        };
-
-        var bonusValue = (long)(value * percent);
-        value += bonusValue;
-
-        return value;
+            var v = Enum.GetValues(typeof(T));
+            return (T) v.GetValue(Random.Next(1, v.Length));
+        }
     }
 }

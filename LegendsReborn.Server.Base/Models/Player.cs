@@ -30,7 +30,7 @@ public class Player : Sprite
     public Class PastClass { get; set; }
     public Gender Gender { get; set; }
     public byte HairColor { get; set; }
-    public byte HairStyle { get; set; }
+    public ushort HairStyle { get; set; }
     public byte NameColor { get; set; }
     public string ProfileMessage { get; set; }
     public Nation Nation { get; set; }

@@ -44,7 +44,7 @@ public partial class App
         const string logTemplate = "[{Timestamp:MMM-dd HH:mm:ss} {Level:u3}] {Message}{NewLine}{Exception}";
 
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.File("_Zolian_logs_.txt", LogEventLevel.Verbose, logTemplate, rollingInterval: RollingInterval.Day)
+            .WriteTo.File("_Legends_logs_.txt", LogEventLevel.Verbose, logTemplate, rollingInterval: RollingInterval.Day)
             .WriteTo.Console(LogEventLevel.Verbose, logTemplate, theme: AnsiConsoleTheme.Literate)
             .CreateLogger();
 
@@ -53,12 +53,12 @@ public partial class App
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         var builder = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("ServerConfig.json");
+            .AddJsonFile("LegendsConfig.json");
 
         try
         {
             var config = builder.Build();
-            var constants = config.GetSection("ServerConfig").Get<ServerConstants>();
+            var constants = config.GetSection("LegendsConfig").Get<ServerConstants>();
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddOptions()
                 .AddSingleton(providers)

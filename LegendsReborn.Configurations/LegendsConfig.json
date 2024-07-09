@@ -1,0 +1,228 @@
+{
+	// Locales
+	"Content": {
+		"Location": "Z:\\Zolian\\Data\\LoruleData",
+		"ServerIP": "127.0.0.1"
+		//Don't change the IP - Just build in release mode!
+	},
+	"ServerConfig": {
+		// Walking | F5 | Porting
+		"RefreshRate": 1000,
+		"RefreshOnWalkCollision": true,
+		"ProhibitF5Walk": true,
+		"ProhibitItemSwitchWalk": true,
+		"ProhibitSpeedWalk": true,
+		"F5ReloadsPlayers": false,
+		"F5ReloadsMonsters": false,
+		"DontTurnDuringRefresh": false,
+		"CancelCastingWhenWalking": true,
+		"CancelWalkingIfRefreshing": true,
+
+		// Starting Zone
+		"NationReturnHours": 3,
+		"StartingMap": 11364,
+		"StartingPosition": {
+			"X": 2,
+			"Y": 7
+		},
+
+		// World Transitions
+		"TransitionPointX": 5,
+		"TransitionPointY": 5,
+		"TransitionZone": 1001,
+
+		// Scripts
+		"MonsterCreationScript": "Create Monster",
+		"BaseDamageScript": "Base Damage",
+		"MonsterRewardScript": "Monster Exp 1x",
+		"ElementTableScript": "Elements 1.0",
+		"ACFormulaScript": "AC Formula",
+
+		// Offense
+		"BaseDamageMod": 1,
+		"AiteDamageReductionMod": 2,
+		"SleepProcsDoubleDmg": true,
+		"BehindDamageMod": 1.5,
+		"RogueBehindDamageMod": 2.25,
+		"PvpDamageMod": 0.5,
+
+		// Defense
+		"BaseStatAttribute": 3,
+		"MinimumHp": 50,
+		"MaxHP": 500000,
+		"BaseAC": 100,
+		"MaxAC": 200,
+		"BaseMR": 70,
+		"RegenRate": 30,
+
+		// Skills
+		"GiveAssailOnCreate": true,
+		"GlobalBaseSkillDelay": 750.0,
+		"GlobalBaseAssailDelay": 750.0,
+		"AssailsCancelSpells": true,
+
+		// Spells
+		"FasNadurStrength": 0,
+		"MorFasNadurStrength": 0,
+		"MaxChantTimeBurdenMs": 1500,
+		"MaxSpellsPerSecond": 3,
+
+		// Items
+		"ClickLootDistance": 5,
+		"DefaultItemColor": 0,
+		"DefaultItemDurability": 1000,
+		"DefaultItemValue": 1000,
+		"GlobalBaseItemDelay": 300,
+
+		// Death
+		"SkullLength": 20,
+		"DeathHPPenalty": 50,
+		"DeathMap": 435,
+		"CanMoveDuringReap": false,
+		"DeathMapX": 13,
+		"DeathMapY": 10,
+
+		// Monsters | NPCs
+		"MundaneRespawnInterval": 3.0,
+		"GlobalSpawnTimer": 3000.0,
+		"MonsterSpellSuccessRate": 70,
+
+		// Players
+		"PlayerLevelCap": 99,
+		"GroupExpBonus": 0.75,
+		"ExperienceMultiplier": 1.0,
+		"MaxCarryGold": 100000000,
+		"LootTableStackSize": 6,
+		"StatCap": 140,
+		"StatsPerLevel": 2,
+		"WeightIncreasemodifier": 48,
+
+
+		// Server Related Maintenance
+		"AppInsightsKey": "",
+		"DebugMode": false,
+		"DayTimeInterval": 30.0,
+		"ConnectionCapacity": 500,
+		"ERRORCAP": 15,
+		"HelperMenuId": -1,
+		"HelperMenuTemplateKey": "Help Menu",
+		"LogClientPackets": false,
+		"LogServerPackets": false,
+		"MultiUserLogin": false,
+		"BadRequestMessage": "(Invalid Request)",
+		"DefaultKey": "73F2BE80DDEB1BFDC887AB1C3CA18365",
+		"ServerDev": "Pill",
+		"ProjectDev": "Pill",
+		"LingerState": 1000.0,
+		"PingInterval": 30.0,
+		"SaveRate": 60.0,
+		"SERVER_PORT": 4202,
+		"LOGIN_PORT": 4201,
+		"LOBBY_PORT": 4200,
+		"SERVER_TITLE": "Legends: Age of Chaos",
+		"ServerWelcomeMessage": "Welcome home, Aisling.",
+		"GameMasters": [
+			"Gramail",
+			//"Cail",
+			"Ceannlaidir",
+			//"Chadul",
+			//"Danaan",
+			"Deoch",
+			//"Fiosachd",
+			"Glioca",
+			//"Grinneal",
+			"Luathas",
+			"Sgrios"
+		],
+		"DontSavePlayers": false,
+    "ReservedRedirects": [
+      {
+        "Id": 1,
+        "Name": "Legends"
+      },
+      {
+        "Id": 2,
+        "Name": "Zolian"
+      }
+    ],
+		"DevModeExemptions": [],
+		"UseLoruleVariants": false,
+		"UseLoruleItemRarity": false,
+		"ErrorReporting": true,
+		"DevMode": false,
+		"UseLobby": true,
+		"ClientVersion": 741,
+		"LogObjectsAdded": true,
+		"LogObjectsRemoved": true,
+		"PVPMap": 5235,
+
+		// Messages
+		"MessageClearInterval": 90.0,
+		"CantAttack": "You can't attack this creature.",
+		"CantCarryMoreMsg": "You can't carry more.",
+		"CantDoThat": "You can't do that.",
+		"CantDropItemMsg": "You can't drop that.",
+		"CantEquipThatMessage": "You can't wear that.",
+		"CantUseThat": "You can't use that.",
+		"CantWearYetMessage": "You can't equip this yet.",
+		"ChantPrefix": "*",
+		"ChantSuffix": "*",
+		"StrAddedMessage": "You feel stronger.",
+		"IntAddedMessage": "You feel more understanding.",
+		"WisAddedMessage": "Your thoughts become clearer.",
+		"ConAddedMessage": "Your body becomes more durable.",
+		"DexAddedMessage": "You feel more flexible.",
+		"CursedItemMessage": "That does not belong to you.",
+		"DoesNotFitMessage": "That does not fit you.",
+		"GroupRequestDeclinedMsg": "noname does not wish to join your party.",
+		"HandShakeMessage": "CAN WE ALL GET ALONG\n",
+		"LevelUpMessage": "Your insight has grown.",
+		"MerchantBuy": "Buy",
+		"MerchantBuyMessage": "Hello, Aisling. How may I help you today?",
+		"MerchantCancelMessage": "Decline",
+		"MerchantConfirmMessage": "Accept",
+		"MerchantDefaultMessage": "Take care of yourself.",
+		"MerchantRefuseTradeMessage": "I'm not interested in that.",
+		"MerchantSell": "Sell",
+		"MerchantStackErrorMessage": "You don't have that many.",
+		"MerchantTradeCompletedMessage": "Thanks for your business.",
+		"MerchantTradeErrorMessage": "It seems something went wrong.",
+		"MerchantWarningMessage": "I'm sorry, it seems like you can't afford this.",
+		"NoManaMessage": "Your will is too weak.",
+		"NotEnoughGoldToDropMsg": "You don't have enough gold.",
+		"ReapMessage": "You are nearing death.|Your breathing becomes shallow.|Your vision is blurring.|Your body begins to feel cold.",
+		"ReapMessageDuringAction": "Your body is too weak to do this right now.",
+		"RepairItemMessage": "This item is badly damaged. You should repair it first.",
+		"SomethingWentWrong": "Something went wrong.",
+		"SpellFailedMessage": "The spell failed.",
+		"TooWeakToLift": "You aren't strong enough to carry this.",
+		"UserDroppedGoldMsg": "noname has dropped some gold nearby.",
+		"WrongClassMessage": "Your training prevents the use of this item.",
+		"YouDroppedGoldMsg": "You've dropped some gold.",
+		"ItemNotRequiredMsg": "In order to teach you this secret, I require:\n{=q",
+		"DeathReepingMessage": "You feel your soul being ripped from your body.",
+
+		// Warp 
+		"WarpCheckRate": 200,
+		"ShowWarpAnimation": false,
+		"WarpNumber": 295,
+
+		//Proximity
+		"VeryNearByProximity": 5,
+		"WithinRangeProximity": 25,
+		"WithinCastProximity": 12,
+		"WithinViewProximity": 12,
+
+		//Arena
+		"ArenaEventCheckFrequency": 3000,
+		"ArenaEventDelayOnStartupTime": 10000,
+		"ArenaEventTriggerHour": 9, //8 means trigger every other day at 8am and every offset day at 8pm
+		"ArenaEventStartAtPM": false, //true means when you boot the server up, the next event will be at ArenaEventTriggerHour PM time. ie 10pm.
+		"ArenaEventSignupTime": 900, //seconds to sign up to arena event
+		"ArenaEventTeamFormationTime": 45, //seconds for npc to form teams
+		"ArenaTimeToWalkToStartingZone": 90, //seconds to walk to the starting area
+		"ArenaTimerForRoundToReset": 5, //timer for round to reset
+		"ArenaRoundsNeededToWinElixirLeague": 2, //timer for round to reset
+		"ArenaDelayToAssignFinalWinner": 5 //timer for match to end
+	}
+}

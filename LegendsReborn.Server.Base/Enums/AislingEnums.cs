@@ -1,4 +1,6 @@
-﻿namespace Darkages.Enums;
+﻿using Chaos.Common.Definitions;
+
+namespace Darkages.Enums;
 
 [Flags]
 public enum Gender : byte
@@ -91,25 +93,6 @@ public enum ActivityStatus : byte
     LoneHunter = 5,
     GroupHunter = 6,
     NeedHelp = 7
-}
-
-[Flags]
-public enum Nation : byte
-{
-    Exile,
-    Suomi,
-    Ellas,
-    Loures,
-    Mileth,
-    Tagor,
-    Rucesion,
-    Noes,
-    Illuminati,
-    Piet,
-    Atlantis,
-    Abel,
-    Undine,
-    Purgatory
 }
 
 public static class PlayerExtensions

@@ -1,4 +1,6 @@
-﻿namespace Darkages.Enums;
+﻿using Chaos.Common.Definitions;
+
+namespace Darkages.Enums;
 
 public static class SpriteMaker
 {
