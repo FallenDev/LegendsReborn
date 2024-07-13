@@ -1,131 +1,136 @@
-﻿using Darkages.Enums;
+﻿using Chaos.Geometry.Abstractions.Definitions;
 
-using System.Numerics;
+using Darkages.Enums;
 
 namespace Darkages.Types;
 
 [Serializable]
 public class Position
 {
-    public Position() { }
-
-    public Position(Vector2 position)
+    public Position(ushort x, ushort y)
     {
-        X = (ushort)position.X;
-        Y = (ushort)position.Y;
-    }
-
-    public Position(int x, ushort y)
-    {
-        X = (ushort)x;
+        X = x;
         Y = y;
     }
 
-    public Position(ushort x, int y)
+    public Position(int x, int y) : this((ushort)x, (ushort)y)
     {
-        X = x;
-        Y = (ushort)y;
     }
 
-    public Position(int x, int y)
+    public Position() : this(0, 0)
     {
-        X = (ushort)x;
-        Y = (ushort)y;
-    }
-
-    public Position(float x, float y)
-    {
-        X = (ushort)x;
-        Y = (ushort)y;
-    }
-
-    public Position(ushort readX, ushort readY)
-    {
-        X = readX;
-        Y = readY;
     }
 
     public ushort X { get; set; }
     public ushort Y { get; set; }
 
-    public int DistanceFrom(ushort xDist, ushort yDist)
+    public static Position operator +(Position a, Direction b)
     {
-        double xDiff = Math.Abs(xDist - X);
-        double yDiff = Math.Abs(yDist - Y);
+        var location = new Position(a.X, a.Y);
+        switch (b)
+        {
+            case Direction.Up:
+                location.Y--;
+                return location;
 
-        return (int)(xDiff > yDiff ? xDiff : yDiff);
+            case Direction.Right:
+                location.X++;
+                return location;
+
+            case Direction.Down:
+                location.Y++;
+                return location;
+
+            case Direction.Left:
+                location.X--;
+                return location;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(b), b, null);
+        }
     }
 
-    public int DistanceFrom(Position pos)
+    public int DistanceFrom(ushort X, ushort Y)
     {
-        return pos == null ? 0 : DistanceFrom(pos.X, pos.Y);
-    }
+        double XDiff = Math.Abs(X - this.X);
+        double YDiff = Math.Abs(Y - this.Y);
 
-    public bool IsNearby(Position pos)
-    {
-        return pos.DistanceFrom(X, Y) <= ServerSetup.Instance.Config.VeryNearByProximity;
+        return (int)(XDiff > YDiff ? XDiff : YDiff);
     }
+    public int DistanceFrom(Position pos) => DistanceFrom(pos.X, pos.Y);
+
+    public bool IsNearby(Position pos) => pos.DistanceFrom(X, Y) <= ServerSetup.Instance.Config.VeryNearByProximity;
 
     public bool IsNextTo(Position pos, int distance = 1)
     {
-        if (X == pos.X && Y + distance == pos.Y) return true;
-        if (X == pos.X && Y - distance == pos.Y) return true;
-        if (X == pos.X + distance && Y == pos.Y) return true;
-        return X == pos.X - distance && Y == pos.Y;
+        if ((X == pos.X) && (Y + distance == pos.Y))
+            return true;
+        if ((X == pos.X) && (Y - distance == pos.Y))
+            return true;
+        if ((X == pos.X + distance) && (Y == pos.Y))
+            return true;
+        if ((X == pos.X - distance) && (Y == pos.Y))
+            return true;
+
+        return false;
     }
 
     public TileContentPosition[] SurroundingContent(Area map)
     {
         var list = new List<TileContentPosition>();
 
-        try
-        {
-            if (X > 0)
-                list.Add(new TileContentPosition(new Position(X - 1, Y),
-                    !map.ObjectGrid[X - 1, Y].Sprites.Any()
-                        ? !map.IsWall(X - 1, Y) ? TileContent.None : TileContent.Wall
-                        : TileContent.Wall));
+        if (X > 0)
+            list.Add(new TileContentPosition(
+                new Position(X - 1, Y),
+                map.ObjectGrid[X - 1, Y].Sprites.Count == 0 ? !map.IsWall(X - 1, Y) ? TileContent.None : TileContent.Wall : TileContent.Wall));
 
-            if (Y > 0)
-                list.Add(new TileContentPosition(new Position(X, Y - 1),
-                    !map.ObjectGrid[X, Y - 1].Sprites.Any()
-                        ? !map.IsWall(X, Y - 1) ? TileContent.None : TileContent.Wall
-                        : TileContent.Wall));
+        if (Y > 0)
+            list.Add(new TileContentPosition(
+                new Position(X, Y - 1),
+                map.ObjectGrid[X, Y - 1].Sprites.Count == 0 ? !map.IsWall(X, Y - 1) ? TileContent.None : TileContent.Wall : TileContent.Wall));
 
-            if (X < map.Height - 1)
-                list.Add(new TileContentPosition(new Position(X + 1, Y),
-                    !map.ObjectGrid[X + 1, Y].Sprites.Any()
-                        ? !map.IsWall(X + 1, Y) ? TileContent.None : TileContent.Wall
-                        : TileContent.Wall));
+        if (X < map.Height - 1)
+            list.Add(new TileContentPosition(
+                new Position(X + 1, Y),
+                map.ObjectGrid[X + 1, Y].Sprites.Count == 0 ? !map.IsWall(X + 1, Y) ? TileContent.None : TileContent.Wall : TileContent.Wall));
 
-            if (Y < map.Width - 1)
-                list.Add(new TileContentPosition(new Position(X, Y + 1),
-                    !map.ObjectGrid[X, Y + 1].Sprites.Any()
-                        ? !map.IsWall(X, Y + 1) ? TileContent.None : TileContent.Wall
-                        : TileContent.Wall));
-        }
-        catch
-        {
-            return null;
-        }
+        if (Y < map.Width - 1)
+            list.Add(new TileContentPosition(
+                new Position(X, Y + 1),
+                map.ObjectGrid[X, Y + 1].Sprites.Count == 0 ? !map.IsWall(X, Y + 1) ? TileContent.None : TileContent.Wall : TileContent.Wall));
 
         return list.ToArray();
     }
 
-    public class TileContentPosition(Position pos, TileContent content)
+    public class TileContentPosition
     {
-        public TileContent Content { get; set; } = content;
-        public Position Position { get; set; } = pos;
+        public TileContentPosition(Position pos, TileContent content)
+        {
+            Position = pos;
+            Content = content;
+        }
+
+        public TileContent Content { get; set; }
+        public Position Position { get; set; }
     }
 
-    public static bool TryParse(string xValue, string yValue, out Position position)
+    public static bool TryParse(string xvalue, string yvalue, out Position position)
     {
         position = null;
 
-        if (!int.TryParse(xValue, out var x) || !int.TryParse(yValue, out var y))
+        if (!int.TryParse(xvalue, out var x) || !int.TryParse(yvalue, out var y))
             return false;
 
         position = new Position(x, y);
         return true;
+    }
+    public override bool Equals(object obj) => obj is Position position && Equals(position);
+    public override int GetHashCode() => HashCode.Combine(X, Y);
+    public bool Equals(Position other) => other is not null && X == other.X && Y == other.Y;
+    public static bool operator ==(Position left, Position right) => (left is null && right is null) || (left is not null && left.Equals(right));
+    public static bool operator !=(Position left, Position right) => !((left is null && right is null) || (left is not null && left.Equals(right)));
+
+    public override string ToString()
+    {
+        return "(" + X.ToString() + "," + Y.ToString() + ")";
     }
 }

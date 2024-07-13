@@ -2,42 +2,69 @@
 using Darkages.Enums;
 using Darkages.Types;
 using Microsoft.Data.SqlClient;
-
+using Newtonsoft.Json;
 using ServiceStack;
+
+using System.Collections.ObjectModel;
+
+using System.ComponentModel;
 
 namespace Darkages.Templates;
 
-public class MundaneTemplate : Template
+[Flags]
+public enum ViewQualifer
 {
-    public ushort Image { get; set; }
-    public string ScriptKey { get; set; }
-    public bool EnableWalking { get; set; }
-    public bool EnableTurning { get; set; }
-    public bool EnableSpeech { get; set; }
-    public List<string> Speech { get; set; } = new();
-    public ushort X { get; set; }
-    public ushort Y { get; set; }
-    public int AreaID { get; set; }
-    public byte Direction { get; set; }
-    public List<Position> Waypoints { get; set; }
-    public PathQualifer PathQualifer { get; set; }
-
-    public WorldServerTimer AttackTimer { get; set; }
-    public WorldServerTimer SpellTimer { get; set; }
-    public WorldServerTimer ChatTimer { get; set; }
-    public WorldServerTimer TurnTimer { get; set; }
-    public WorldServerTimer WalkTimer { get; set; }
-
-    public int CastRate { get; set; }
-    public int ChatRate { get; set; }
-    public int TurnRate { get; set; }
-    public int WalkRate { get; set; }
-
-    public List<string> Skills { get; set; }
-    public List<string> Spells { get; set; }
-    public List<string> DefaultMerchantStock { get; set; } = new();
+    None = 0,
+    Peasants = 1 << 1,
+    Warriors = 1 << 2,
+    Wizards = 1 << 3,
+    Monks = 1 << 4,
+    Rogues = 1 << 5,
+    Priests = 1 << 6,
+    All = Peasants | Warriors | Wizards | Monks | Rogues | Priests
 }
 
+public class MundaneTemplate : Template
+{
+    public MundaneTemplate() => Speech = [];
+
+    public int AreaID { get; set; }
+    [Browsable(false)] [JsonIgnore] public WorldServerTimer AttackTimer { get; set; }
+    public int CastRate { get; set; }
+    public int ChatRate { get; set; }
+    [Browsable(false)] [JsonIgnore] public WorldServerTimer ChatTimer { get; set; }
+    public List<string> DefaultMerchantStock { get; set; } = [];
+    public List<string> RogueStock { get; set; } = [];
+    public byte Direction { get; set; }
+    public bool EnableAttacking { get; set; }
+    public bool EnableCasting { get; set; }
+    public bool EnableTurning { get; set; }
+    public bool EnableWalking { get; set; }
+    public short Image { get; set; }
+    public int Level { get; set; }
+    [Browsable(false)] public int MaximumHp { get; set; }
+    [Browsable(false)] public int MaximumMp { get; set; }
+    [JsonProperty] public PathQualifer PathQualifer { get; set; }
+    public string QuestKey { get; set; }
+    public string ScriptKey { get; set; }
+    public List<string> Skills { get; set; }
+    public Collection<string> Speech { get; set; }
+    public List<string> Spells { get; set; }
+    [Browsable(false)] [JsonIgnore] public WorldServerTimer SpellTimer { get; set; }
+    public int TurnRate { get; set; }
+    [Browsable(false)] [JsonIgnore] public WorldServerTimer TurnTimer { get; set; }
+    [JsonProperty] public ViewQualifer ViewingQualifer { get; set; }
+    public int WalkRate { get; set; }
+    [Browsable(false)] [JsonIgnore] public WorldServerTimer WalkTimer { get; set; }
+    [JsonProperty] public List<Position> Waypoints { get; set; }
+    public ushort X { get; set; }
+    public ushort Y { get; set; }
+
+    public override string[] GetMetaData() =>
+    [
+        ""
+    ];
+}
 public static class MundaneStorage
 {
     public static void CacheFromDatabase(string conn, string type)
@@ -45,13 +72,11 @@ public static class MundaneStorage
         try
         {
             var sConn = new SqlConnection(conn);
-            var sql = $"SELECT * FROM ZolianMundanes.dbo.{type}";
+            var sql = $"SELECT * FROM LegendsMundanes.dbo.{type}";
 
             sConn.Open();
 
             var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
             var reader = cmd.ExecuteReader();
 
             while (reader.Read())
@@ -66,63 +91,44 @@ public static class MundaneStorage
                 var x = (int)reader["X"];
                 var y = (int)reader["Y"];
                 var direction = (int)reader["Direction"];
-                var pathFind = reader["PathFinder"].ConvertTo<PathQualifer>();
+                var pathFind = reader["PathFinder"].ToString().ConvertTo<PathQualifer>();
                 var way1 = WayPointConvert(reader["WayPointOne"].ToString());
                 var way2 = WayPointConvert(reader["WayPointTwo"].ToString());
                 var way3 = WayPointConvert(reader["WayPointThree"].ToString());
                 var way4 = WayPointConvert(reader["WayPointFour"].ToString());
                 var way5 = WayPointConvert(reader["WayPointFive"].ToString());
-                var stock1 = reader["DefaultStock1"].ToString();
-                var stock2 = reader["DefaultStock2"].ToString();
-                var stock3 = reader["DefaultStock3"].ToString();
-                var stock4 = reader["DefaultStock4"].ToString();
-                var stock5 = reader["DefaultStock5"].ToString();
-                var stock6 = reader["DefaultStock6"].ToString();
-                var stock7 = reader["DefaultStock7"].ToString();
-                var stock8 = reader["DefaultStock8"].ToString();
-                var stock9 = reader["DefaultStock9"].ToString();
-                var stock10 = reader["DefaultStock10"].ToString();
-                var stock11 = reader["DefaultStock11"].ToString();
-                var stock12 = reader["DefaultStock12"].ToString();
-                var stock13 = reader["DefaultStock13"].ToString();
-                var stock14 = reader["DefaultStock14"].ToString();
-                var stock15 = reader["DefaultStock15"].ToString();
-                var stock16 = reader["DefaultStock16"].ToString();
-                var stock17 = reader["DefaultStock17"].ToString();
-                var stock18 = reader["DefaultStock18"].ToString();
-                var stock19 = reader["DefaultStock19"].ToString();
-                var stock20 = reader["DefaultStock20"].ToString();
-                var stock21 = reader["DefaultStock21"].ToString();
-                var stock22 = reader["DefaultStock22"].ToString();
-                var stock23 = reader["DefaultStock23"].ToString();
-                var stock24 = reader["DefaultStock24"].ToString();
-                var stock25 = reader["DefaultStock25"].ToString();
-                var stock26 = reader["DefaultStock26"].ToString();
-                var stock27 = reader["DefaultStock27"].ToString();
-                var stock28 = reader["DefaultStock28"].ToString();
-                var stock29 = reader["DefaultStock29"].ToString();
-                var stock30 = reader["DefaultStock30"].ToString();
+                for (int L = 1; L <=30; L++)
+                {
+                    var stock = reader["DefaultStock" + L];
+                    if (stock != null)
+                        temp.DefaultMerchantStock.Add(stock.ToString());
+                }
+                for(int M = 1; M <=30; M++)
+                {
+                    var roguestock = reader["RogueStock" + M];
+                    if (roguestock != null)
+                        temp.RogueStock.Add(roguestock.ToString());
+                }
 
-                temp.Image = (ushort)image;
+                temp.Image = (short)image;
                 temp.ScriptKey = reader["ScriptKey"].ToString();
                 temp.EnableWalking = (bool)reader["EnableWalking"];
                 temp.EnableTurning = (bool)reader["EnableTurning"];
-                temp.EnableSpeech = (bool)reader["EnableSpeech"];
-                if (speech1 != null)
+                if (speech1 != string.Empty)
                     temp.Speech.Add(speech1);
-                if (speech2 != null)
+                if (speech2 != string.Empty)
                     temp.Speech.Add(speech2);
-                if (speech3 != null)
+                if (speech3 != string.Empty)
                     temp.Speech.Add(speech3);
-                if (speech4 != null)
+                if (speech4 != string.Empty)
                     temp.Speech.Add(speech4);
-                if (speech5 != null)
+                if (speech5 != string.Empty)
                     temp.Speech.Add(speech5);
                 temp.X = (ushort)x;
                 temp.Y = (ushort)y;
                 temp.AreaID = (int)reader["AreaId"];
                 temp.Direction = (byte)direction;
-                temp.Waypoints = new List<Position>();
+                temp.Waypoints = [];
                 if (way1 != null)
                     temp.Waypoints.Add(way1);
                 if (way2 != null)
@@ -135,69 +141,9 @@ public static class MundaneStorage
                     temp.Waypoints.Add(way5);
                 temp.PathQualifer = pathFind;
                 temp.Name = reader["Name"].ToString();
-                if (stock1 != null)
-                    temp.DefaultMerchantStock.Add(stock1);
-                if (stock2 != null)
-                    temp.DefaultMerchantStock.Add(stock2);
-                if (stock3 != null)
-                    temp.DefaultMerchantStock.Add(stock3);
-                if (stock4 != null)
-                    temp.DefaultMerchantStock.Add(stock4);
-                if (stock5 != null)
-                    temp.DefaultMerchantStock.Add(stock5);
-                if (stock6 != null)
-                    temp.DefaultMerchantStock.Add(stock6);
-                if (stock7 != null)
-                    temp.DefaultMerchantStock.Add(stock7);
-                if (stock8 != null)
-                    temp.DefaultMerchantStock.Add(stock8);
-                if (stock9 != null)
-                    temp.DefaultMerchantStock.Add(stock9);
-                if (stock10 != null)
-                    temp.DefaultMerchantStock.Add(stock10);
-                if (stock11 != null)
-                    temp.DefaultMerchantStock.Add(stock11);
-                if (stock12 != null)
-                    temp.DefaultMerchantStock.Add(stock12);
-                if (stock13 != null)
-                    temp.DefaultMerchantStock.Add(stock13);
-                if (stock14 != null)
-                    temp.DefaultMerchantStock.Add(stock14);
-                if (stock15 != null)
-                    temp.DefaultMerchantStock.Add(stock15);
-                if (stock16 != null)
-                    temp.DefaultMerchantStock.Add(stock16);
-                if (stock17 != null)
-                    temp.DefaultMerchantStock.Add(stock17);
-                if (stock18 != null)
-                    temp.DefaultMerchantStock.Add(stock18);
-                if (stock19 != null)
-                    temp.DefaultMerchantStock.Add(stock19);
-                if (stock20 != null)
-                    temp.DefaultMerchantStock.Add(stock20);
-                if (stock21 != null)
-                    temp.DefaultMerchantStock.Add(stock21);
-                if (stock22 != null)
-                    temp.DefaultMerchantStock.Add(stock22);
-                if (stock23 != null)
-                    temp.DefaultMerchantStock.Add(stock23);
-                if (stock24 != null)
-                    temp.DefaultMerchantStock.Add(stock24);
-                if (stock25 != null)
-                    temp.DefaultMerchantStock.Add(stock25);
-                if (stock26 != null)
-                    temp.DefaultMerchantStock.Add(stock26);
-                if (stock27 != null)
-                    temp.DefaultMerchantStock.Add(stock27);
-                if (stock28 != null)
-                    temp.DefaultMerchantStock.Add(stock28);
-                if (stock29 != null)
-                    temp.DefaultMerchantStock.Add(stock29);
-                if (stock30 != null)
-                    temp.DefaultMerchantStock.Add(stock30);
-
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalMundaneTemplateCache[temp.Name] = temp;
+                if (temp.Name == null) 
+                    continue;
+                ServerSetup.Instance.GlobalMundaneTemplateCache[temp.Name] = temp;
             }
 
             reader.Close();
@@ -205,31 +151,30 @@ public static class MundaneStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.EventsLogger(e.ToString());
+            Console.WriteLine(e.ToString());
+            throw;
         }
     }
 
     private static Position WayPointConvert(string wayPointString)
     {
-        if (wayPointString.IsNullOrEmpty()) return null;
+        if (wayPointString.IsNullOrEmpty()) 
+            return null;
         const char delim = ',';
         var cords = wayPointString.Split(delim);
         var x = 0;
         var y = 0;
 
-        if (cords.Length == 0) return new Position(0, 0);
+        if (cords.Length == 0) 
+            return new Position(0, 0);
 
         foreach (var cord in cords)
         {
             if (cord == cords.FirstOrDefault())
-            {
                 x = cord.ToInt();
-            }
 
             if (cord == cords.LastOrDefault())
-            {
                 y = cord.ToInt();
-            }
         }
 
         return new Position(x, y);

@@ -26,26 +26,16 @@ public interface IServerContext
     void CommandHandler();
     void DatabaseSaveConnection();
     void SetGoodActors();
-    FrozenDictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
-    Dictionary<int, WorldMapTemplate> TempGlobalWorldMapTemplateCache { get; set; }
-    FrozenDictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
-    Dictionary<int, WarpTemplate> TempGlobalWarpTemplateCache { get; set; }
-    FrozenDictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
-    Dictionary<string, SkillTemplate> TempGlobalSkillTemplateCache { get; set; }
-    FrozenDictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
-    Dictionary<string, SpellTemplate> TempGlobalSpellTemplateCache { get; set; }
-    FrozenDictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
-    Dictionary<string, ItemTemplate> TempGlobalItemTemplateCache { get; set; }
-    FrozenDictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
-    Dictionary<string, NationTemplate> TempGlobalNationTemplateCache { get; set; }
-    FrozenDictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
-    Dictionary<string, MonsterTemplate> TempGlobalMonsterTemplateCache { get; set; }
-    FrozenDictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
-    Dictionary<string, MundaneTemplate> TempGlobalMundaneTemplateCache { get; set; }
-    FrozenDictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
-    Dictionary<uint, string> TempGlobalKnownGoodActorsCache { get; set; }
-    FrozenDictionary<int, Area> GlobalMapCache { get; set; }
-    Dictionary<int, Area> TempGlobalMapCache { get; set; }
+    Dictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
+    Dictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
+    Dictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
+    Dictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
+    Dictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
+    Dictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
+    Dictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
+    Dictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
+    Dictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
+    Dictionary<int, Area> GlobalMapCache { get; set; }
     ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; }
     ConcurrentDictionary<string, Debuff> GlobalDeBuffCache { get; set; }
     ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; }

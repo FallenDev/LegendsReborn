@@ -1,80 +1,40 @@
 ﻿using Darkages.Object;
 using Darkages.Sprites;
-using System.Numerics;
 
 namespace Darkages.Types;
 
 public class TileGrid : ObjectManager
 {
     private readonly Area _map;
-    private readonly int _x;
-    private readonly int _y;
-    public readonly bool Impassable;
-    public bool HasBeenUsed, IsViewable;
-    public float FScore;
-    public readonly float Cost;
-    public float CurrentDist;
-    public Vector2 Parent, Pos;
+    private readonly int _x, _y;
 
     public TileGrid(Area map, int x, int y)
     {
         _map = map;
         _x = x;
         _y = y;
-        Impassable = false;
-        HasBeenUsed = false;
-        IsViewable = false;
-        Cost = 1.0f;
     }
 
-    public TileGrid(float cost)
+    public List<Sprite> Sprites => GetObjects(_map,
+            o => (o.X == _x) && (o.Y == _y) && o.Alive,
+            Get.Monsters | Get.Mundanes | Get.Aislings)
+        .ToList();
+
+    public bool IsPassable(Sprite sprite, bool fromAisling)
     {
-        Cost = cost;
-        HasBeenUsed = false;
-        IsViewable = false;
-    }
-
-    public TileGrid(Vector2 pos, float cost, bool filled, float fScore)
-    {
-        Cost = cost;
-        Impassable = filled;
-        HasBeenUsed = false;
-        IsViewable = false;
-
-        Pos = pos;
-        FScore = fScore;
-    }
-
-    public void SetNode(Vector2 parent, float fScore, float currentDist)
-    {
-        Parent = parent;
-        FScore = fScore;
-        CurrentDist = currentDist;
-    }
-
-    public IEnumerable<Sprite> Sprites => AttemptFetchSprites();
-
-    private IEnumerable<Sprite> AttemptFetchSprites()
-    {
-        const int maxAttempts = 3;
-        Exception lastException = null;
-        IEnumerable<Sprite> sprites = null;
-
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        //var length = 0;
+        lock (Sprites)
         {
-            try
-            {
-                sprites = GetObjects(_map, o => o != null && (int)o.Pos.X == _x && (int)o.Pos.Y == _y && o.Alive,
-                    Get.Monsters | Get.Mundanes | Get.Aislings);
-                break;
-            }
-            catch (Exception e)
-            {
-                lastException = e;
-            }
-        }
+            if (sprite is Monster monster && monster.Template.IgnoreCollision)
+                return true;
 
-        if (sprites != null) return sprites;
-        return Enumerable.Empty<Sprite>();
+            //can an aisling walk over a monster
+            //can a normal monster walk over an aisling
+
+            var position = new Position(_x, _y);
+            var objectsOnSpot = Sprites.Where(obj => obj != null && obj.Position.Equals(position)).ToList();
+
+            return !objectsOnSpot.Any();
+        }
     }
 }

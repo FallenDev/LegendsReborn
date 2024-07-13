@@ -48,28 +48,16 @@ public class ServerSetup : IServerContext
     public string InternalAddress { get; set; }
 
     // Templates
-    public FrozenDictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
-    public Dictionary<int, WorldMapTemplate> TempGlobalWorldMapTemplateCache { get; set; } = [];
-    public FrozenDictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
-    public Dictionary<int, WarpTemplate> TempGlobalWarpTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
-    public Dictionary<string, SkillTemplate> TempGlobalSkillTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
-    public Dictionary<string, SpellTemplate> TempGlobalSpellTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
-    public Dictionary<string, ItemTemplate> TempGlobalItemTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
-    public Dictionary<string, NationTemplate> TempGlobalNationTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
-    public Dictionary<string, MonsterTemplate> TempGlobalMonsterTemplateCache { get; set; } = [];
-    public FrozenDictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
-    public Dictionary<string, MundaneTemplate> TempGlobalMundaneTemplateCache { get; set; } = [];
-    public FrozenDictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
-    public Dictionary<uint, string> TempGlobalKnownGoodActorsCache { get; set; } = [];
-
-    // Frozen Live
-    public FrozenDictionary<int, Area> GlobalMapCache { get; set; }
-    public Dictionary<int, Area> TempGlobalMapCache { get; set; } = [];
+    public Dictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
+    public Dictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
+    public Dictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
+    public Dictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
+    public Dictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
+    public Dictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
+    public Dictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
+    public Dictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
+    public Dictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
+    public Dictionary<int, Area> GlobalMapCache { get; set; }
 
     // Live
     public ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; } = [];

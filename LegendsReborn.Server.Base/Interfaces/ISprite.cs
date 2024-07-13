@@ -1,6 +1,9 @@
 ﻿using Darkages.Enums;
 using Darkages.Sprites;
 using Darkages.Types;
+using Darkages.Types.Buffs;
+
+using Legends.Server.Base.Types.Debuffs;
 
 using System.Collections.Concurrent;
 
@@ -26,8 +29,8 @@ public interface ISprite
     DateTime LastTargetAcquired { get; set; }
     DateTime LastTurnUpdated { get; set; }
     DateTime LastUpdated { get; set; }
-    ConcurrentDictionary<string, Buff> Buffs { get; }
-    ConcurrentDictionary<string, Debuff> Debuffs { get; }
+    ConcurrentDictionary<string, BuffBase> Buffs { get; }
+    ConcurrentDictionary<string, DebuffBase> Debuffs { get; }
 
     #region Stats
 

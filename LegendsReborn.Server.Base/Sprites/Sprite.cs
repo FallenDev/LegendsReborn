@@ -130,7 +130,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     #endregion Map HP/MP Limiters
 
-    public Position Position => new(Pos);
+    public Position Position => new(XPos, YPos);
     public TileContent EntityType { get; protected set; }
 
     public int Level => EntityType == TileContent.Aisling ? ((Aisling)this).ExpLevel
@@ -159,26 +159,25 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     protected Sprite()
     {
         if (this is Aisling)
-            TileType = TileContent.Aisling;
+            EntityType = TileContent.Aisling;
         if (this is Monster)
-            TileType = TileContent.Monster;
+            EntityType = TileContent.Monster;
         if (this is Mundane)
-            TileType = TileContent.Mundane;
+            EntityType = TileContent.Mundane;
         if (this is Money)
-            TileType = TileContent.Money;
+            EntityType = TileContent.Money;
         if (this is Item)
-            TileType = TileContent.Item;
-        var readyTime = DateTime.UtcNow;
-        BuffAndDebuffTimer = new WorldServerTimer(TimeSpan.FromSeconds(1));
+            EntityType = TileContent.Item;
+
         Amplified = 0;
         Target = null;
-        Buffs = [];
-        Debuffs = [];
-        LastTargetAcquired = readyTime;
-        LastMovementChanged = readyTime;
-        LastTurnUpdated = readyTime;
-        LastUpdated = readyTime;
-        LastPosition = new Position(Vector2.Zero);
+        Buffs = new ConcurrentDictionary<string, BuffBase>(StringComparer.OrdinalIgnoreCase);
+        Debuffs = new ConcurrentDictionary<string, DebuffBase>(StringComparer.OrdinalIgnoreCase);
+        LastTargetAcquired = DateTime.UtcNow;
+        LastMovementChanged = DateTime.UtcNow;
+        LastTurnUpdated = DateTime.UtcNow;
+        LastUpdated = DateTime.UtcNow;
+        LastPosition = new Position(0, 0);
     }
 
     public static Aisling Aisling(Sprite obj)
@@ -244,8 +243,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public DateTime LastTurnUpdated { get; set; }
     public DateTime LastUpdated { get; set; }
     public DateTime LastEquipOrUnEquip { get; set; }
-    public ConcurrentDictionary<string, Buff> Buffs { get; }
-    public ConcurrentDictionary<string, Debuff> Debuffs { get; }
+    public ConcurrentDictionary<string, BuffBase> Buffs { get; }
+    public ConcurrentDictionary<string, DebuffBase> Debuffs { get; }
 
     #region Stats
 

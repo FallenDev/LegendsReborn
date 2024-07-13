@@ -1,19 +1,28 @@
-﻿using Darkages.Enums;
+﻿using Darkages.Common;
+using Darkages.Enums;
 using Darkages.Sprites;
 using Darkages.Templates;
+
+using System.Collections.Concurrent;
+using Newtonsoft.Json;
 
 namespace Darkages.Types;
 
 public class Trap
 {
+    public static ConcurrentDictionary<int, Trap> Traps = new();
+
     private int _ticks;
-    public int CurrentMapId { get; init; }
+
+    public Trap() => _ticks = 0;
+
+    public int CurrentMapId { get; set; }
     public int Duration { get; set; }
-    public Position Location { get; init; }
-    public Sprite Owner { get; init; }
+    public Position Location { get; set; }
+    [JsonIgnore] public Sprite Owner { get; set; }
     public int Radius { get; set; }
-    public uint Serial { get; set; }
-    public Item TrapItem { get; set; }
+    public int Serial { get; set; }
+    public Item TrapItem { get; private set; }
     public Action<Sprite, Sprite> Tripped { get; set; }
 
     public static bool Activate(Trap trap, Sprite target)
@@ -22,30 +31,57 @@ public class Trap
         return RemoveTrap(trap);
     }
 
-    private static bool RemoveTrap(Trap trapToRemove)
+    public static bool RemoveTrap(Trap traptoRemove)
     {
-        if (!ServerSetup.Instance.Traps.TryRemove(trapToRemove.Serial, out var trap)) return false;
-        trap.TrapItem?.Remove();
-        return true;
+        lock (Traps)
+            if (Traps.TryRemove(traptoRemove.Serial, out var trap))
+            {
+                trap.TrapItem?.Remove();
+                return true;
+            }
+
+        return false;
     }
 
-    public static void Set(Sprite obj, ushort image, int duration, int radius = 1, Action<Sprite, Sprite> cb = null)
+    public static bool Set(Sprite obj, int duration, int radius = 1, Action<Sprite, Sprite> cb = null)
     {
-        var item = new Item();
         var itemTemplate = new ItemTemplate
         {
             Name = "A Hidden Trap",
-            Image = image,
-            DisplayImage = image,
+            Image = 500,
+            DisplayImage = 0x8000 + 500,
             Flags = ItemFlags.Trap
         };
 
-        if (obj is Aisling aisling)
-            aisling.ActionUsed = "Trap";
+        var pos = obj.Position;
 
-        var trap = item.TrapCreate(obj, itemTemplate, duration, radius, cb);
-        trap.TrapItem.Release(obj, trap.TrapItem.Position);
-        ServerSetup.Instance.Traps.TryAdd(trap.Serial, trap);
+        if (obj is Aisling aisling)
+        {
+            if (!aisling.Client.IsMoving)
+                pos = aisling.LastPosition;
+            else
+                pos = aisling.Position;
+        }
+
+        var ts = Item.Create(obj, itemTemplate);
+        ts.Release(obj, pos);
+
+        lock (Generator.Random)
+        {
+            var id = Generator.GenerateNumber();
+
+            return Traps.TryAdd(id, new Trap
+            {
+                Radius = radius,
+                Duration = duration,
+                CurrentMapId = obj.CurrentMapId,
+                Location = pos,
+                Owner = obj,
+                Tripped = cb,
+                Serial = id,
+                TrapItem = ts
+            });
+        }
     }
 
     public void Update()

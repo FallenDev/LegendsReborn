@@ -5,12 +5,17 @@ using Darkages.Types;
 
 namespace Darkages.ScriptingBase;
 
-public abstract class SkillScript(Skill skill) : ObjectManager, IScriptBase, IUseable
+public abstract class SkillScript : ObjectManager, IScriptBase, IUseableTarget
 {
-    public Skill Skill { get; set; } = skill;
+    protected SkillScript(Skill skill) => Skill = skill;
+
+    public bool IsScriptDefault { get; set; }
+
+    public Skill Skill { get; set; }
 
     public abstract void OnFailed(Sprite sprite);
-    public abstract void OnSuccess(Sprite sprite);
-    public abstract void OnUse(Sprite sprite);
-    public virtual void ItemOnDropped(Sprite sprite, Position pos, Area map) { }
+
+    public abstract void OnSuccess(Sprite sprite, Sprite target);
+
+    public abstract void OnUse(Sprite sprite, Sprite target);
 }

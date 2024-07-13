@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35004.147
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegendsReborn", "LegendsReborn\LegendsReborn.csproj", "{7E88753C-25DB-4E26-AF35-A4968FCF7C24}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LegendsReborn", "LegendsReborn\LegendsReborn.csproj", "{7E88753C-25DB-4E26-AF35-A4968FCF7C24}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LegendsReborn.Configurations", "LegendsReborn.Configurations\LegendsReborn.Configurations.shproj", "{E9ADE581-0044-4104-87C2-1EE17A64E6B4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegendsReborn.Server.Base", "LegendsReborn.Server.Base\LegendsReborn.Server.Base.csproj", "{F5E9413F-47F3-4E80-98E4-81322D784556}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LegendsReborn.Server.Base", "LegendsReborn.Server.Base\LegendsReborn.Server.Base.csproj", "{F5E9413F-47F3-4E80-98E4-81322D784556}"
 EndProject
 Global
 	GlobalSection(ExtensibilityGlobals) = postSolution

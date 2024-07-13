@@ -9,5 +9,6 @@ public enum TileContent
     Wall,
     Warp,
     Item,
-    Money
+    Money,
+    Chest
 }
