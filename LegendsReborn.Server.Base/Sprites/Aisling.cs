@@ -202,7 +202,7 @@ public class Aisling : Sprite
     // 0 - None || 1 - Beryl || 2 - Ruby || 3 - Sapphire || 4 - Emerald
     public int NecklaceType { get; set; }
     //0 - None || 1 - Basic|| 2 - Flawed || 3 - Fine || 4 - Flawless|| 5 - Perfect||
-    public int NecklaceGrade { get; set;}
+    public int NecklaceGrade { get; set; }
     public int CraftedSlot { get; set; }
     public int Fiber { get; set; }
     public string SmithName { get; set; }
@@ -592,8 +592,8 @@ public class Aisling : Sprite
     }
     public Legend LegendBook { get; set; }
     public bool LoggedIn { get; set; }
-    public int MaximumWeight => (int) (ExpLevel / 4 + _Str + ServerSetup.Instance.Config.WeightIncreasemodifier);
-    public ushort MonsterForm { get; set; } 
+    public int MaximumWeight => (int)(ExpLevel / 4 + _Str + ServerSetup.Instance.Config.WeightIncreasemodifier);
+    public ushort MonsterForm { get; set; }
     public byte NameColor { get; set; }
     public string Nation { get; set; } = "Mileth"; // default nation.
     public ushort OverCoat { get; set; }
@@ -609,7 +609,7 @@ public class Aisling : Sprite
     {
         get
         {
-            if (Nation != null) 
+            if (Nation != null)
                 return ServerSetup.Instance.GlobalNationTemplateCache[Nation];
             throw new InvalidOperationException();
         }
@@ -655,6 +655,51 @@ public class Aisling : Sprite
     public ChantTimer ChantTimer { get; set; }
     public ResettingCounter WalkCounter { get; set; }
     public int Valentine { get; set; }
+
+    public void SendTargetedClientMethod(PlayerScope op, Action<IWorldClient> method, IEnumerable<Aisling> definer = null)
+    {
+        var selectedPlayers = new List<Aisling>();
+
+        switch (op)
+        {
+            case PlayerScope.NearbyAislingsExludingSelf:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && WithinRangeOf(otherPlayers)).Where(player => player.Serial != Serial));
+                break;
+            case PlayerScope.NearbyAislings:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && WithinRangeOf(otherPlayers)));
+                break;
+            case PlayerScope.Clan:
+                selectedPlayers.AddRange(GetObjects<Aisling>(null, otherPlayers => otherPlayers != null && !string.IsNullOrEmpty(otherPlayers.Clan) && string.Equals(otherPlayers.Clan, Clan, StringComparison.CurrentCultureIgnoreCase)));
+                break;
+            case PlayerScope.VeryNearbyAislings:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && WithinRangeOf(otherPlayers, ServerSetup.Instance.Config.VeryNearByProximity)));
+                break;
+            case PlayerScope.AislingsOnSameMap:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && CurrentMapId == otherPlayers.CurrentMapId));
+                break;
+            case PlayerScope.GroupMembers:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && GroupParty.Has(otherPlayers)));
+                break;
+            case PlayerScope.NearbyGroupMembersExcludingSelf:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && WithinRangeOf(otherPlayers) && GroupParty.Has(otherPlayers)).Where(player => player.Serial != Serial));
+                break;
+            case PlayerScope.NearbyGroupMembers:
+                selectedPlayers.AddRange(GetObjects<Aisling>(Map, otherPlayers => otherPlayers != null && WithinRangeOf(otherPlayers) && GroupParty.Has(otherPlayers)));
+                break;
+            case PlayerScope.DefinedAislings when definer == null:
+                return;
+            case PlayerScope.DefinedAislings:
+                selectedPlayers.AddRange(definer);
+                break;
+            case PlayerScope.All:
+                selectedPlayers.AddRange(ServerSetup.Instance.Game.Aislings);
+                break;
+            case PlayerScope.Self:
+            default:
+                method(Client);
+                return;
+        }
+    }
 
     public bool CanSeeGhosts() => IsDead();
     public bool CastDeath()
@@ -709,7 +754,7 @@ public class Aisling : Sprite
         }
         else
             spell.NextAvailableUse = DateTime.UtcNow.AddSeconds(castInfo.SpellLines > 0 ? 0 : 0.34);
-            
+
         Client.Aisling.IsCastingSpell = false;
 
     }
@@ -724,7 +769,7 @@ public class Aisling : Sprite
             return true;
         }
 
-        if (sendClientUpdate) 
+        if (sendClientUpdate)
             Client?.SendStats(StatusFlags.ExpGold);
 
         return false;
@@ -733,7 +778,7 @@ public class Aisling : Sprite
     {
         target.CurrentHp += value;
 
-        if (target.CurrentHp > target.MaximumHp) 
+        if (target.CurrentHp > target.MaximumHp)
             target.CurrentHp = target.MaximumHp;
 
         return this;
@@ -841,7 +886,7 @@ public class Aisling : Sprite
 
         Remains.Owner = this;
 
-        if (!Inventory.IsFull || (EquipmentManager.Length > 0)) 
+        if (!Inventory.IsFull || (EquipmentManager.Length > 0))
             Remains.ReepItems();
 
         for (var i = 0; i < 2; i++)
@@ -1016,11 +1061,11 @@ public class Aisling : Sprite
     {
         RemoveBuff("hide");
         RemoveBuff("veil");
-            
+
         //stealth
         if (Invisible)
             Invisible = false;
-            
+
         Client.UpdateDisplay();
     }
     public override string ToString() => Username;
@@ -1074,7 +1119,7 @@ public class Aisling : Sprite
             Stat.Wis => _Wis,
             Stat.Con => _Con,
             Stat.Dex => _Dex,
-            _        => throw new ArgumentOutOfRangeException(nameof(stat), stat, null)
+            _ => throw new ArgumentOutOfRangeException(nameof(stat), stat, null)
         };
     public void WarpToHell()
     {
@@ -1162,7 +1207,7 @@ public class Aisling : Sprite
 
         var goldA = exchangeA.Gold;
         var goldB = exchangeB.Gold;
-            
+
 
         Exchange = null;
         trader.Exchange = null;
@@ -1237,29 +1282,29 @@ public class Aisling : Sprite
         switch (client.Stage)
         {
             case ClassStage.Class:
-            {
-                if (client.GameMaster)
-                    return $"Aosda";
-            }
+                {
+                    if (client.GameMaster)
+                        return $"Aosda";
+                }
                 break;
             case ClassStage.Pure_Master:
-            {
-                return $"Master {client.Path}";
-            }
+                {
+                    return $"Master {client.Path}";
+                }
 
             case ClassStage.Subpathed_Master:
-            {
-                return $"Master {client.Path}";
-            }
+                {
+                    return $"Master {client.Path}";
+                }
 
             case ClassStage.Pure_Grand_Master:
-            {
-                return $"Grand Master {client.Path}";
-            }
+                {
+                    return $"Grand Master {client.Path}";
+                }
             case ClassStage.Subpathed_Grand_Master:
-            {
-                return $"Grand Master {client.Path}";
-            }
+                {
+                    return $"Grand Master {client.Path}";
+                }
         }
         return $"{client.Path}";
     }

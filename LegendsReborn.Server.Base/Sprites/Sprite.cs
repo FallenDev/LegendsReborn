@@ -5,7 +5,6 @@ using Chaos.Geometry.Abstractions.Definitions;
 
 using Darkages.Common;
 using Darkages.Enums;
-using Darkages.GameScripts.Items;
 using Darkages.Interfaces;
 using Darkages.Object;
 using Darkages.ScriptingBase;
@@ -14,15 +13,10 @@ using Darkages.Types;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Formats.Asn1;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using Darkages.Types.Buffs;
 using Legends.Server.Base.Types.Debuffs;
-using static System.Formats.Asn1.AsnWriter;
-
 using MapFlags = Darkages.Enums.MapFlags;
 
 namespace Darkages.Sprites;
@@ -595,7 +589,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         void Step0C(int x, int y)
         {
             var readyTime = DateTime.UtcNow;
-            Pos = new Vector2(PendingX, PendingY);
+            X = PendingX;
+            Y = PendingY;
 
             foreach (var player in AislingsNearby())
             {
@@ -603,7 +598,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             }
 
             LastMovementChanged = readyTime;
-            LastPosition = new Position(x, y);
+            LastPosition = new Position(X, Y);
         }
 
         lock (_walkLock)
@@ -621,49 +616,35 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 allowGhostWalk = monster.Template.IgnoreCollision;
             }
 
-            // Check position before we add direction, add direction, check position to see if we can commit
-            if (!allowGhostWalk)
-            {
-                if (Map.IsWall(currentPosX, currentPosY)) return false;
-                if (Map.IsSpriteInLocationOnWalk(this, PendingX, PendingY)) return false;
-            }
-
-            switch (Direction)
-            {
-                case 0:
-                    PendingY--;
-                    break;
-                case 1:
-                    PendingX++;
-                    break;
-                case 2:
-                    PendingY++;
-                    break;
-                case 3:
-                    PendingX--;
-                    break;
-            }
+            if (Direction == 0)
+                PendingY--;
+            else if (Direction == 1)
+                PendingX++;
+            else if (Direction == 2)
+                PendingY++;
+            else if (Direction == 3)
+                PendingX--;
 
             if (!allowGhostWalk)
             {
-                if (Map.IsWall(PendingX, PendingY)) return false;
-                if (Map.IsSpriteInLocationOnWalk(this, PendingX, PendingY)) return false;
+                if ((Map != null) && Map.IsWall(PendingX, PendingY))
+                    return false;
+
+                if ((Map != null) && !Map.ObjectGrid[PendingX, PendingY].IsPassable(this, this is Aisling))
+                    return false;
             }
 
-            // Commit Walk to other Player Clients
+            // Commit
             Step0C(currentPosX, currentPosY);
 
-            // Check Trap Activation
-            if (this is Monster trapCheck)
-                CheckTraps(trapCheck);
-
-            // Reset our PendingX & PendingY
+            // Reset
             PendingX = currentPosX;
             PendingY = currentPosY;
 
             return true;
         }
     }
+
     public bool WalkTo(int x, int y) => WalkTo(x, y, false);
 
     public bool WalkTo(int x, int y, bool ignoreWalls = false)
@@ -722,33 +703,21 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     public void Wander()
     {
-        if (!CanUpdate()) return;
+        if (!CanUpdate())
+            return;
 
         var savedDirection = Direction;
         var update = false;
+        Direction = (byte)Random.Shared.Next(0, 4);
 
-        Direction = (byte)RandomNumberGenerator.GetInt32(5);
-        if (Direction != savedDirection) update = true;
+        if (Direction != savedDirection)
+            update = true;
 
         if (Walk() || !update) return;
 
         foreach (var player in AislingsNearby())
         {
             player?.Client.SendCreatureTurn(Serial, (Direction)Direction);
-        }
-    }
-
-    public void CheckTraps(Monster monster)
-    {
-        foreach (var trap in ServerSetup.Instance.Traps.Values.Where(t => t.TrapItem.Map.ID == monster.Map.ID))
-        {
-            if (trap.Owner == null || trap.Owner.Serial == monster.Serial ||
-                monster.X != trap.Location.X || monster.Y != trap.Location.Y) continue;
-
-            var triggered = Trap.Activate(trap, monster);
-            if (!triggered) continue;
-            ServerSetup.Instance.Traps.TryRemove(trap.Serial, out _);
-            break;
         }
     }
 
@@ -848,8 +817,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return relationalDirection == behindDirection || Position.IsInterCardinalTo(other.Position, (Direction)behindDirection);
     }
 
-    public void ApplyDamage(Sprite damageDealingSprite, int dmg, byte sound = 1,
-        Action<int> dmgcb = null, bool forceTarget = false)
+    public void ApplyDamage(Sprite damageDealingSprite, int dmg, byte sound = 1, Action<int> dmgcb = null, bool forceTarget = false)
     {
         int ApplyPVPMod()
         {
@@ -892,6 +860,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         OnDamaged(damageDealingSprite, dmg);
     }
+
     public int DamageBarrier(int dmg)
     {
         var oldBarrier = Barrier;
@@ -916,6 +885,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return dmg;
     }
+
     public int CompleteDamageApplication(int dmg, byte sound, Action<int> dmgcb, double amplifier)
     {
         if (dmg <= 0)
@@ -934,25 +904,20 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         if (CurrentHp < 0)
             CurrentHp = 0;
 
-        var hpBar = new ServerFormat13
+        if (this is Aisling aisling)
         {
-            Serial = Serial,
-            Health = (ushort)((double)100 * CurrentHp / MaximumHp),
-            Sound = sound
-        };
+            aisling.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
+        }
+        else
+            PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
+
         if (sound < 127)
             SendSound(sound);
 
-        Show(Scope.NearbyAislings, hpBar);
-        {
-            dmgcb?.Invoke(dmgApplied);
-        }
-
         return dmgApplied;
     }
-    public bool DamageTarget(Sprite damageDealingSprite,
-        ref int dmg, byte sound,
-        Action<int> dmgcb, bool forced)
+
+    public bool DamageTarget(Sprite damageDealingSprite, ref int dmg, byte sound, Action<int> dmgcb, bool forced)
     {
         if (this is Monster monster && damageDealingSprite is Aisling aisling)
         {
@@ -978,14 +943,12 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         if (Immunity)
         {
-            var empty = new ServerFormat13
+            if (this is Aisling aisling2)
             {
-                Serial = Serial,
-                Health = byte.MaxValue,
-                Sound = sound
-            };
-
-            Show(Scope.NearbyAislings, empty);
+                aisling2.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
+            }
+            else
+                PlayerNearby?.SendTargetedClientMethod(PlayerScope.NearbyAislings, c => c.SendHealthBar(this, sound));
             return false;
         }
 
@@ -1115,7 +1078,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         var levelText = string.Format("{0,-32} {1,-25}", "{=sLevel:{=u " + target.Level, "{=sMagic Resistance:{=u " + target.BonusMr);
         var hpmpText = string.Format("{0,-32} {1,-25}", "{=sCurrent Health:{=u " + target.CurrentHp, "{=sCurrent Mana:{=u " + target.CurrentMp);
         var elementText2 = string.Format("{0,-32} {1,-25}", "{=sOffense Element: " + "{=" + o + target.OffenseElement, "{=sDefense Element: " + "{=" + n + target.DefenseElement);
-        aisling.Client.SendMessage(0x08, $"{titleText}\n\n{levelText}\n{hpmpText}\n{elementText2}");
+        aisling.Client.SendServerMessage(ServerMessageType.ScrollWindow, $"{titleText}\n\n{levelText}\n{hpmpText}\n{elementText2}");
     }
 
     public void ApplyDebuff(string debuffName)
@@ -1146,17 +1109,19 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return dmg;
     }
 
-    public double CalculateElementalDamageMod(Element element)
+    public double CalculateElementalDamageMod(ElementManager.Element element)
     {
         var script = ScriptManager.Load<ElementFormulaScript>(ServerSetup.Instance.Config.ElementTableScript, this);
 
         return script?.Values.Sum(s => s.Calculate(this, element)) ?? 0.0;
     }
-    public int GetBaseDamage(Sprite target, MonsterDamageType type)
+
+    public int GetBaseDamage(Sprite target, MonsterEnums type)
     {
         var script = ScriptManager.Load<DamageFormulaScript>(ServerSetup.Instance.Config.BaseDamageScript, this, target, type);
         return script?.Values.Sum(s => s.Calculate(this, target, type)) ?? 1;
     }
+
     public string GetDebuffName(Func<DebuffBase, bool> p)
     {
         if ((Debuffs == null) || (Debuffs.Count == 0))
@@ -1166,6 +1131,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             .FirstOrDefault(p)
             ?.Name;
     }
+
     public double GetElementalModifier(Sprite damageDealingSprite)
     {
         if (damageDealingSprite == null)
@@ -1188,10 +1154,11 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return amplifier;
     }
+
     public void OnDamaged(Sprite source, int dmg)
     {
-        (this as Aisling)?.Client.SendStats(StatusFlags.Vitality | StatusFlags.ExpGold);
-        (source as Aisling)?.Client.SendStats(StatusFlags.Vitality | StatusFlags.ExpGold);
+        (this as Aisling)?.Client.SendAttributes(StatUpdateType.Full);
+        (source as Aisling)?.Client.SendAttributes(StatUpdateType.Full);
 
         if (!(this is Monster))
         {
@@ -1211,6 +1178,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         foreach (var script in monsterScripts.Values)
             script?.OnDamaged(aisling?.Client, dmg, source);
     }
+
     public bool HasBuff(string buff)
     {
         if ((Buffs == null) || (Buffs.Count == 0))
@@ -1218,6 +1186,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return Buffs.ContainsKey(buff);
     }
+
     public bool HasDebuff(string debuff)
     {
         if ((Debuffs == null) || (Debuffs.Count == 0))
@@ -1225,6 +1194,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return Debuffs.ContainsKey(debuff);
     }
+
     private bool HasDebuff(Func<DebuffBase, bool> p)
     {
         if ((Debuffs == null) || (Debuffs.Count == 0))
@@ -1232,6 +1202,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return Debuffs.Select(i => i.Value).FirstOrDefault(p) != null;
     }
+
     private void RemoveAllBuffs()
     {
         if (Buffs == null)
@@ -1240,6 +1211,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         foreach (var buff in Buffs)
             RemoveBuff(buff.Key);
     }
+
     private void DispelBuffs()
     {
         if (Buffs == null)
@@ -1250,6 +1222,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 && !buff.Key.ContainsI("alliance") && !buff.Key.ContainsI("gathering") && !buff.Key.ContainsI("inspiration"))
                 RemoveBuff(buff.Key);
     }
+
     private void DispelDebuffs()
     {
         if (Debuffs == null)
@@ -1258,6 +1231,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             if ((debuff.Key != "herbalism") && (debuff.Key != "skulled") && (debuff.Key != "arrested"))
                 RemoveDebuff(debuff.Key, true);
     }
+
     private void RemoveAllDebuffs()
     {
         if (Debuffs == null)
@@ -1266,6 +1240,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         foreach (var debuff in Debuffs)
             RemoveDebuff(debuff.Key);
     }
+
     public bool RemoveBuff(string buff)
     {
         if (!HasBuff(buff))
@@ -1276,16 +1251,19 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return true;
     }
+
     public void RemoveBuffsAndDebuffs()
     {
         RemoveAllBuffs();
         RemoveAllDebuffs();
     }
+
     public void DispelBuffsAndDebuffs()
     {
         DispelBuffs();
         DispelDebuffs();
     }
+
     public bool RemoveDebuff(string debuff, bool cancelled = false)
     {
         if (!cancelled && (debuff == "skulled"))
@@ -1304,6 +1282,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return true;
     }
+
     public void ApplyArmorProc(Aisling aisling)
     {
         if (aisling.EquipmentManager.Armor is not null)
@@ -1328,15 +1307,23 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             }
         }
     }
+
     protected virtual int RollD10000() => Random.Shared.Next(1, 10001);
+
     #endregion
 
     #region Status
+
     public void UpdateAddAndRemove()
     {
-        Show(Scope.NearbyAislings, new ServerFormat0E(Serial));
-        Show(Scope.NearbyAislings, new ServerFormat07([this]));
+        foreach (var playerNearby in AislingsNearby())
+        {
+            playerNearby.Client.SendRemoveObject(Serial);
+            var obj = new List<Sprite> { this };
+            playerNearby.Client.SendVisibleEntities(obj);
+        }
     }
+
     public void UpdateBuffs(TimeSpan elapsedTime)
     {
         foreach (var (_, buff) in Buffs)
@@ -1351,6 +1338,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             buff.Update(this, elapsedTime);
         }
     }
+
     public void UpdateDebuffs(TimeSpan elapsedTime)
     {
         foreach (var (_, debuff) in Debuffs)
@@ -1367,6 +1355,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             debuff.Update(this, elapsedTime);
         }
     }
+
     public void StatusBarDisplayUpdateBuff(BuffBase buffBase)
     {
         if (this is not Aisling aisling)
@@ -1391,8 +1380,9 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         else if (buffBase.TimeLeft.IsWithin(61, short.MaxValue))
             buffBase.CurrentColor = StatusBarColor.White;
         if (previousColor != buffBase.CurrentColor)
-            aisling.Client.Send(new ServerFormat3A(buffBase.Icon, (byte)buffBase.CurrentColor));
+            aisling.Client.SendEffect((EffectColor)buffBase.CurrentColor, buffBase.Icon);
     }
+
     public void StatusBarDisplayUpdateDebuff(DebuffBase deBuffBase)
     {
         if (this is not Aisling aisling)
@@ -1418,8 +1408,9 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             deBuffBase.CurrentColor = StatusBarColor.White;
 
         if (previousColor != deBuffBase.CurrentColor)
-            aisling.Client.Send(new ServerFormat3A(deBuffBase.Icon, (byte)deBuffBase.CurrentColor));
+            aisling.Client.SendEffect((EffectColor)deBuffBase.CurrentColor, deBuffBase.Icon);
     }
+
     private bool CanUpdate()
     {
         if (IsSleeping || IsFrozen || IsArrested || IsPetrified)
@@ -1434,28 +1425,12 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         aisling.Client.SystemMessage(ServerSetup.Instance.Config.ReapMessageDuringAction);
         return false;
     }
+
     #endregion
 
     #region Sprite Methods
 
     public TSprite Cast<TSprite>() where TSprite : Sprite => this as TSprite;
-
-    public void UpdateAddAndRemove()
-    {
-        foreach (var playerNearby in AislingsNearby())
-        {
-            uint objectId;
-
-            if (this is Item item)
-                objectId = item.ItemVisibilityId;
-            else
-                objectId = Serial;
-
-            playerNearby.Client.SendRemoveObject(objectId);
-            var obj = new List<Sprite> { this };
-            playerNearby.Client.SendVisibleEntities(obj);
-        }
-    }
 
     public void Remove()
     {
@@ -1522,6 +1497,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     }
 
     #endregion
+
+    #region Ambush & Charge
 
     private Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1)
     {
@@ -1668,4 +1645,6 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         return diffX + diffY;
     }
+
+    #endregion
 }

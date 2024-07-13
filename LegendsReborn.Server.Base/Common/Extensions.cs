@@ -3,6 +3,8 @@ using Darkages.Sprites;
 
 using System.Numerics;
 using System.Text;
+using Chaos.Geometry.Abstractions.Definitions;
+using Darkages.Types;
 
 namespace Darkages.Common;
 
@@ -41,6 +43,86 @@ public static class Extensions
             direction -= 4;
 
         return direction;
+    }
+
+    public static byte DirectionalRelationTo(this Position position, Position other)
+    {
+        if (position == null)
+            throw new ArgumentNullException(nameof(position));
+
+        if (other == null)
+            throw new ArgumentNullException(nameof(other));
+
+        var direction = -1;
+        var degree = 0;
+
+        if (position.Y < other.Y)
+        {
+            degree = other.Y - position.Y;
+            direction = 0;
+        }
+        else if (position.Y > other.Y)
+        {
+            degree = position.Y - other.Y;
+            direction = 2;
+        }
+
+        if (position.X > other.X)
+        {
+            if (position.X - other.X > degree)
+                direction = 1;
+        }
+        else if (position.X < other.X)
+        {
+            if (other.X - position.X > degree)
+                direction = 3;
+        }
+
+        return (byte)direction;
+    }
+
+    /// <summary>
+    ///     Returns the Direction Enum equivalent of the reverse of a given cardinal direction.
+    /// </summary>
+    public static byte Reverse(this byte direction)
+    {
+        direction += 2;
+
+        if (direction >= 4)
+            direction -= 4;
+
+        return direction;
+    }
+
+    public static bool IsWithin(this int value, int minimum, int maximum) => (value >= minimum) && (value <= maximum);
+
+    /// <summary>
+    ///     Determines if this point is on either intercardinal diagonal in relation to another point, in the given direction
+    /// </summary>
+    /// <param name="point">The point to test</param>
+    /// <param name="other">The point in which directions are based on</param>
+    /// <param name="direction">The direction between the 2 intercardinals to check</param>
+    /// <returns><c>true</c> if this point is on an intercardinal diagonal in relation to the other point in the given direction, otherwise <c>false</c></returns>
+    public static bool IsInterCardinalTo(this Position point, Position other, Direction? direction = null)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(other);
+
+        var xDiff = point.X - other.X;
+        var yDiff = point.Y - other.Y;
+
+        if (Math.Abs(xDiff) != Math.Abs(yDiff))
+            return false;
+
+        return direction switch
+        {
+            Direction.Up => ((xDiff < 0) && (yDiff < 0)) || ((xDiff > 0) && (yDiff < 0)),
+            Direction.Right => ((xDiff > 0) && (yDiff < 0)) || ((xDiff > 0) && (yDiff > 0)),
+            Direction.Down => ((xDiff > 0) && (yDiff > 0)) || ((xDiff < 0) && (yDiff > 0)),
+            Direction.Left => ((xDiff < 0) && (yDiff > 0)) || ((xDiff < 0) && (yDiff < 0)),
+            null => true,
+            _ => false
+        };
     }
 
     /// <summary>
@@ -83,29 +165,6 @@ public static class Extensions
     {
         key = entry.Key;
         value = entry.Value;
-    }
-
-    /// <summary>
-    /// Checks if Player can see another Player, based on race, party, skill / spell
-    /// </summary>
-    /// <param name="source">If not a Player, return false</param>
-    /// <param name="other">If not a Player, return true</param>
-    public static bool CanSeeSprite(this Sprite source, Sprite other)
-    {
-        if (source is null) return false;
-        if (other is null) return false;
-        if (source == other) return true;
-        if (!other.WithinRangeOf(source)) return false;
-        if (other is not Aisling otherAisling) return true;
-        if (!otherAisling.Dead && !otherAisling.IsInvisible) return true;
-        if (source is not Aisling self) return false;
-        if (otherAisling.Dead) return self.CanSeeGhosts();
-        if (!otherAisling.IsInvisible) return false;
-        if (self.GroupId != 0 && otherAisling.GroupId != 0 && otherAisling.GroupId == self.GroupId) return true;
-        if (self.GameMaster || self.CanSeeInvisible || self.Path is Class.Assassin || self.PastClass is Class.Assassin
-            || self.Race is Race.DarkElf or Race.WoodElf or Race.Dwarf) return true;
-        return otherAisling.GameMaster || otherAisling.CanSeeInvisible || self.Path is Class.Assassin || self.PastClass is Class.Assassin
-               || self.Race is Race.DarkElf or Race.WoodElf or Race.Dwarf;
     }
 
     /// <summary>

@@ -5,5 +5,5 @@ namespace Darkages.ScriptingBase;
 
 public abstract class FormulaScript : IScriptBase
 {
-    public abstract long Calculate(Sprite obj, long value);
+    public abstract int Calculate(Sprite obj, int value);
 }
