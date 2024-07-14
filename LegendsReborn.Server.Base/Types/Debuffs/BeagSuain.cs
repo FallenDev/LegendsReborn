@@ -1,7 +1,4 @@
-using System.Collections.Generic;
-using Legends.Server.Base.Network.ServerFormats;
-
-namespace Legends.Server.Base.Types.Debuffs;
+namespace Darkages.Types.Debuffs;
 
 public class BeagSuain : DebuffBase
 {

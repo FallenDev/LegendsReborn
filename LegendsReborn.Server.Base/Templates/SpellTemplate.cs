@@ -1,10 +1,7 @@
 ﻿using Darkages.Enums;
-using Darkages.Interfaces;
 using Darkages.Types;
-using Legends.Server.Base.Types.Debuffs;
-
 using Darkages.Types.Buffs;
-
+using Darkages.Types.Debuffs;
 using Microsoft.Data.SqlClient;
 
 using ServiceStack;

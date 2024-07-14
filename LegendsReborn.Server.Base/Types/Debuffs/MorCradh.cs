@@ -1,4 +1,4 @@
-namespace Legends.Server.Base.Types.Debuffs;
+namespace Darkages.Types.Debuffs;
 
 public class MorCradh : DebuffBase
 {

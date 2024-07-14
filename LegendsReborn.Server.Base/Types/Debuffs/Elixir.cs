@@ -1,6 +1,4 @@
-using Legends.Server.Base.Network.Game;
-
-namespace Legends.Server.Base.Types.Debuffs;
+namespace Darkages.Types.Debuffs;
 
 public class Elixir : DebuffBase
 {

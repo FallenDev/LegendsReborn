@@ -1,7 +1,4 @@
-﻿using Darkages.Enums;
-using Darkages.Sprites;
-
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text;
 using Chaos.Geometry.Abstractions.Definitions;
 using Darkages.Types;

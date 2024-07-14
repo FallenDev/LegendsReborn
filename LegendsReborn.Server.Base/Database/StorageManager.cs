@@ -1,7 +1,6 @@
 ﻿using Darkages.Templates;
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json;
-using System.Numerics;
 
 namespace Darkages.Database;
 

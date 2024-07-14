@@ -1,5 +1,4 @@
-﻿using Darkages.Common;
-using Darkages.Network.Server;
+﻿using Darkages.Network.Server;
 using Darkages.Object;
 using Darkages.Sprites;
 

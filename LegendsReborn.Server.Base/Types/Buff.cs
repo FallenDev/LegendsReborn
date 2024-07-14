@@ -3,7 +3,6 @@ using Chaos.Common.Identity;
 
 using Dapper;
 using Darkages.Database;
-using Darkages.GameScripts.Affects;
 using Darkages.Interfaces;
 using Darkages.Network.Client.Abstractions;
 using Darkages.Sprites;

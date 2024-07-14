@@ -10,7 +10,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using Darkages.Meta;
 using Darkages.Types.Buffs;
-using Legends.Server.Base.Types.Debuffs;
+using Darkages.Types.Debuffs;
 
 namespace Darkages.Interfaces;
 
@@ -38,7 +38,6 @@ public interface IServerContext
     Dictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
     Dictionary<string, ClanTemplate> GlobalClanTemplateCache { get; set; }
     Dictionary<string, ParcelTemplate> GlobalParcelTemplateCache { get; set; }
-    Dictionary<string, Reactor> GlobalReactorCache { get; set; }
     Dictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
     Dictionary<int, Area> GlobalMapCache { get; set; }
     ConcurrentDictionary<string, BuffBase> GlobalBuffCache { get; set; }

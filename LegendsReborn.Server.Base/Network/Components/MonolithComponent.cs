@@ -4,7 +4,6 @@ using Darkages.Sprites;
 using Darkages.Templates;
 using Darkages.Types;
 using System.Numerics;
-using Darkages.Enums;
 using Darkages.Object;
 
 namespace Darkages.Network.Components;

@@ -9,8 +9,6 @@ using Darkages.Templates;
 
 using Microsoft.Data.SqlClient;
 using Darkages.Network.Client;
-using static System.Formats.Asn1.AsnWriter;
-using static ServiceStack.Diagnostics.Events;
 
 namespace Darkages.Types;
 

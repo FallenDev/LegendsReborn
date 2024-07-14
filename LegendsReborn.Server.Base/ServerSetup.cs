@@ -17,7 +17,7 @@ using System.Reflection;
 using Chaos.Common.Identity;
 using Darkages.Meta;
 using Darkages.Types.Buffs;
-using Legends.Server.Base.Types.Debuffs;
+using Darkages.Types.Debuffs;
 using Microsoft.Data.SqlClient;
 using RestSharp;
 
@@ -61,10 +61,9 @@ public class ServerSetup : IServerContext
     public Dictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
     public Dictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
     public Dictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
-    public Dictionary<string, Reactor> GlobalReactorCache { get; set; }
     public ConcurrentDictionary<string, BuffBase> GlobalBuffCache { get; set; } = [];
     public ConcurrentDictionary<string, DebuffBase> GlobalDeBuffCache { get; set; } = [];
-    public ConcurrentDictionary<string, BoardTemplate> GlobalBoardCache { get; set; } = [];
+    public ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; } = [];
     public Dictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
     public List<Metafile> GlobalMetaCache { get; set; } = [];
     public ConcurrentDictionary<int, Party> GlobalGroupCache { get; set; } = [];
@@ -81,7 +80,6 @@ public class ServerSetup : IServerContext
         KeyCode = ServerOptions.Value.KeyCode;
         Unlock = ServerOptions.Value.Unlock;
         InternalAddress = ServerOptions.Value.InternalIp;
-        GameMastersIPs = ServerOptions.Value.GameMastersIPs;
         var restSettings = SetupRestClients();
         RestClient = new RestClient(restSettings.Item1);
         RestReport = new RestClient(restSettings.Item2);

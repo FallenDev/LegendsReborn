@@ -1,10 +1,6 @@
 ﻿using Chaos.Common.Definitions;
-using Chaos.Geometry;
-using Chaos.Geometry.Abstractions.Definitions;
-
 using Darkages.Common;
 using Darkages.Enums;
-using Darkages.Interfaces;
 using Darkages.Managers;
 using Darkages.Models;
 using Darkages.Network.Client;
@@ -12,15 +8,11 @@ using Darkages.Network.Client.Abstractions;
 using Darkages.Templates;
 using Darkages.Types;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Numerics;
 using ServiceStack;
 using Chaos.Extensions.Common;
 using Chaos.Time;
 using Newtonsoft.Json.Converters;
-using static ServiceStack.Diagnostics.Events;
 using static System.Formats.Asn1.AsnWriter;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace Darkages.Sprites;

@@ -1,11 +1,8 @@
 ﻿using Darkages.Enums;
 using Darkages.Sprites;
-using Darkages.Types;
 using Darkages.Types.Buffs;
-
-using Legends.Server.Base.Types.Debuffs;
-
 using System.Collections.Concurrent;
+using Darkages.Types.Debuffs;
 
 namespace Darkages.Interfaces;
 

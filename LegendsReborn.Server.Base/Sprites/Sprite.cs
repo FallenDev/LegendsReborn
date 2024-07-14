@@ -16,7 +16,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Darkages.Types.Buffs;
-using Legends.Server.Base.Types.Debuffs;
+using Darkages.Types.Debuffs;
 using MapFlags = Darkages.Enums.MapFlags;
 
 namespace Darkages.Sprites;

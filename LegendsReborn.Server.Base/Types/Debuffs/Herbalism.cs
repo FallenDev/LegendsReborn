@@ -1,6 +1,4 @@
-using System;
-
-namespace Legends.Server.Base.Types.Debuffs;
+namespace Darkages.Types.Debuffs;
 
 public class Herbalism : DebuffBase
 {

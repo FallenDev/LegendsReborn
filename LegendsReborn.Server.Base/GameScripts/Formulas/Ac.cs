@@ -1,5 +1,4 @@
-﻿using Darkages.Enums;
-using Darkages.ScriptingBase;
+﻿using Darkages.ScriptingBase;
 using Darkages.Sprites;
 
 namespace Darkages.GameScripts.Formulas;
