@@ -1,127 +1,108 @@
-﻿using Darkages.Network.Client;
+﻿using Dapper;
+using Darkages.Database;
 using Darkages.Object;
 using Darkages.Templates;
 
-using ServiceStack;
-
-using System.Collections.Concurrent;
+using Microsoft.Data.SqlClient;
 
 namespace Darkages.Types;
 
 public class SpellBook : ObjectManager
 {
-    private const int SpellLength = 88;
-    private readonly int[] _invalidSlots = [0, 36, 72, 89];
-    public readonly ConcurrentDictionary<int, Spell> Spells = new();
+    public static readonly int SpellLength = 35 * 3;
+
+    public Dictionary<int, Spell> Spells = new();
 
     public SpellBook()
     {
-        for (var i = 0; i < SpellLength; i++) Spells[i + 1] = null;
+        for (var i = 0; i < SpellLength; i++)
+            Spells[i + 1] = null;
     }
-
-    private bool IsValidSlot(byte slot) => slot is > 0 and < SpellLength && !_invalidSlots.Contains(slot);
+    public int Length => Spells.Count;
 
     public int FindEmpty(int start = 0)
     {
-        for (var i = start; i < SpellLength; i++)
-        {
-            switch (i)
+        var slot = 0;
+
+        for (var i = start; i < Length; i++)
+            if (Spells[i + 1] == null)
             {
-                case 35:
-                case 71:
-                    continue;
+                slot = i + 1;
+                break;
             }
 
-            if (Spells[i + 1] == null) return i + 1;
-        }
-
-        return -1;
+        return slot > 0 ? slot : -1;
     }
 
     public Spell FindInSlot(int slot)
     {
         Spell ret = null;
 
-        if (Spells.TryGetValue(slot, out var spell))
-            ret = spell;
+        if (Spells.ContainsKey(slot))
+            ret = Spells[slot];
 
-        return ret is { Template: not null } ? ret : null;
+        if ((ret != null) && (ret.Template != null)) 
+            return ret;
+
+        return null;
     }
 
-    public IEnumerable<Spell> TryGetSpells(Predicate<Spell> predicate) => Spells.Values.Where(i => i != null && predicate(i)).ToArray();
+    public new Spell[] Get(Predicate<Spell> prediate) =>
+        Spells.Values.Where(i => (i != null) && prediate(i)).ToArray();
 
-    public bool HasSpell(string s)
+    public bool Has(string s) =>
+        Spells.Where(i => (i.Value != null) && (i.Value.Template != null)).Select(i => i.Value.Template)
+            .FirstOrDefault(i => s.Equals(i.Name)) != null;
+
+    public bool Has(SpellTemplate s)
     {
-        if (Spells == null || Spells.Count == 0) return false;
+        var obj = Spells.Where(i => (i.Value != null) && (i.Value.Template != null)).Select(i => i.Value.Template)
+            .FirstOrDefault(i => i.Name.Equals(s.Name));
 
-        return Spells.Values.Where(spell => spell is not null).Where(spell => !spell.Template.Name.IsNullOrEmpty()).Any(spell => spell.Template.Name.ToLower().Equals(s.ToLower()));
+        return obj != null;
     }
 
-    public bool Has(SpellTemplate s) => Spells.Where(i => i.Value?.Template != null).Select(i => i.Value.Template).FirstOrDefault(i => i.Name.Equals(s.Name)) != null;
-
-    public void Remove(WorldClient client, byte movingFrom)
+    public Spell Remove(byte slot, bool spellDelete = false)
     {
-        if (!Spells.TryGetValue(movingFrom, out var copy)) return;
-        if (Spells.TryUpdate(movingFrom, null, copy))
-            client.SendRemoveSpellFromPane(movingFrom);
-        client.DeleteSpellFromDb(copy);
+        if (!Spells.ContainsKey(slot))
+            return null;
+
+        var copy = Spells[slot];
+
+        if (spellDelete)
+            DeleteFromAislingDb(copy);
+
+        Spells[slot] = null;
+
+        return copy;
     }
 
-    public void Set(byte slot, Spell newSpell, Spell oldSpell) => Spells.TryUpdate(slot, newSpell, oldSpell);
+    public void Set(Spell s, bool clone = false) =>
+        Spells[s.Slot] = s;
 
-    public bool AttemptSwap(WorldClient client, byte fromSlot, byte toSlot)
+
+    private static void DeleteFromAislingDb(Spell spell)
     {
-        if (!IsValidSlot(fromSlot) || !IsValidSlot(toSlot)) return false;
-        if (fromSlot == toSlot) return true;
+        var sConn = new SqlConnection(AislingStorage.ConnectionString);
 
-        // Swap to advanced pane
-        if (toSlot == 35)
+        try
         {
-            var spellSlot = FindEmpty(36);
-            toSlot = (byte)spellSlot;
-        }
+            sConn.Open();
 
-        if (toSlot == 71)
+            const string cmd = $"DELETE FROM LegendsPlayers.dbo.PlayersSpellBook WHERE SpellId = @SpellId";
+            sConn.Execute(cmd, new { spell.SpellId });
+
+            sConn.Close();
+        }
+        catch (SqlException e)
         {
-            var spellSlot = FindEmpty();
-            toSlot = (byte)spellSlot;
+            ServerSetup.EventsLogger(e.ToString());
+                
         }
-
-        var spell1 = FindInSlot(fromSlot);
-        var spell2 = FindInSlot(toSlot);
-
-        if (spell1 != null)
-            client.SendRemoveSpellFromPane(spell1.Slot);
-        if (spell2 != null)
-            client.SendRemoveSpellFromPane(spell2.Slot);
-
-        if (spell1 != null && spell2 != null)
+        catch (Exception e)
         {
-            spell1.Slot = toSlot;
-            spell2.Slot = fromSlot;
-            Spells.TryUpdate(fromSlot, spell2, spell1);
-            Spells.TryUpdate(toSlot, spell1, spell2);
-            client.SendAddSpellToPane(spell1);
-            client.SendAddSpellToPane(spell2);
-            return true;
+            ServerSetup.EventsLogger(e.ToString());
+                
         }
-
-        switch (spell1)
-        {
-            case null when spell2 != null:
-                spell2.Slot = fromSlot;
-                Spells.TryUpdate(fromSlot, spell2, null);
-                Spells.TryUpdate(toSlot, null, spell2);
-                client.SendAddSpellToPane(spell2);
-                return true;
-            case null:
-                return true;
-        }
-
-        spell1.Slot = toSlot;
-        Spells.TryUpdate(fromSlot, null, spell1);
-        Spells.TryUpdate(toSlot, spell1, null);
-        client.SendAddSpellToPane(spell1);
-        return true;
     }
 }

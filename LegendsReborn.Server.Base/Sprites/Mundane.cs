@@ -6,7 +6,6 @@ using Darkages.ScriptingBase;
 using Darkages.Templates;
 using Darkages.Types;
 using Newtonsoft.Json;
-using static System.Formats.Asn1.AsnWriter;
 
 namespace Darkages.Sprites;
 

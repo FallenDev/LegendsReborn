@@ -1,5 +1,8 @@
-﻿using Darkages.Sprites;
+﻿using Darkages.Database;
+using Darkages.ScriptingBase;
+using Darkages.Sprites;
 using Darkages.Types;
+using Newtonsoft.Json;
 
 namespace Darkages.Object;
 
@@ -84,5 +87,43 @@ public class ObjectManager
         }
 
         return bucket;
+    }
+
+    public static T Clone<T>(T source) where T: class
+    {
+        var serialized = JsonConvert.SerializeObject(source, Formatting.Indented, StorageManager.Settings);
+        var obj = JsonConvert.DeserializeObject<T>(serialized, StorageManager.Settings);
+
+        switch (source)
+        {
+            case Item item when obj is Item cloned:
+                cloned.Template = item.Template;
+                cloned.Name = item.Template.Name;
+                cloned.Scripts = ScriptManager.Load<ItemScript>(item.Template.ScriptName, obj);
+
+                break;
+            case Monster monster when obj is Monster cloned:
+                cloned.Template = monster.Template;
+                cloned.Scripts = ScriptManager.Load<MonsterScript>(monster.Template.ScriptName, obj);
+
+                break;
+            case Skill skill when obj is Skill cloned:
+                cloned.Template = skill.Template;
+                cloned.Scripts = ScriptManager.Load<SkillScript>(skill.Template.ScriptName, obj);
+
+                break;
+            case Spell spell when obj is Spell cloned:
+                cloned.Template = spell.Template;
+                cloned.Scripts = ScriptManager.Load<SpellScript>(spell.Template.ScriptKey, obj);
+
+                break;
+            case Mundane mundane when obj is Mundane cloned:
+                cloned.Template = mundane.Template;
+                cloned.Scripts = ScriptManager.Load<MundaneScript>(mundane.Template.ScriptKey, obj);
+
+                break;
+        }
+
+        return obj;
     }
 }

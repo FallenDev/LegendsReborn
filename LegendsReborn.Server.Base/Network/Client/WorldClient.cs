@@ -48,6 +48,9 @@ using LanternSize = Chaos.Common.Definitions.LanternSize;
 using MapFlags = Darkages.Enums.MapFlags;
 using Nation = Chaos.Common.Definitions.Nation;
 using RestPosition = Chaos.Common.Definitions.RestPosition;
+using Darkages.Interfaces;
+using static System.Formats.Asn1.AsnWriter;
+using System.Linq;
 
 namespace Darkages.Network.Client;
 
@@ -4797,4 +4800,3589 @@ public class WorldClient : SocketClientBase, IWorldClient
     }
 
     #endregion
+
+    #region Api Modifications
+    Random rand = new();
+    #region Regular Legend Counters
+    public void NightmareLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Fae in legend)
+            if (Fae.Category == "Nightmare")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Fae);
+                Legend.RemoveFromDB(Aisling.Client, Fae);
+            }
+    }
+    public void MentorLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Fae in legend)
+            if (Fae.Category == "Mentor")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Fae);
+                Legend.RemoveFromDB(Aisling.Client, Fae);
+            }
+    }
+    public void DojoLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Dojo in legend)
+            if (Dojo.Category == "Dojo")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Dojo);
+                Legend.RemoveFromDB(Aisling.Client, Dojo);
+            }
+    }
+    public void MenteeLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Fae in legend)
+            if (Fae.Category == "Mentee")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Fae);
+                Legend.RemoveFromDB(Aisling.Client, Fae);
+            }
+    }
+    public void FaeLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Fae in legend)
+            if (Fae.Category == "Fae")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Fae);
+                Legend.RemoveFromDB(Aisling.Client, Fae);
+            }
+    }
+    public void ReligionLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var God in legend)
+            if (God.Category == "Religion")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(God);
+                Legend.RemoveFromDB(Aisling.Client, God);
+            }
+    }
+    public void GeasLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var God in legend)
+            if (God.Category == "Geas")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(God);
+                Legend.RemoveFromDB(Aisling.Client, God);
+            }
+    }
+    public void MassLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var God in legend)
+            if (God.Category == "Mass")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(God);
+                Legend.RemoveFromDB(Aisling.Client, God);
+            }
+    }
+    public void MassCount()
+    {
+        {
+            var legend = Aisling.LegendBook.LegendMarks.ToList();
+            foreach (var God in legend)
+                if (God.Category == "MassCount")
+                {
+                    Aisling.LegendBook.LegendMarks.Remove(God);
+                    Legend.RemoveFromDB(Aisling.Client, God);
+                }
+        }
+    }
+    public void InitiateCount()
+    {
+        {
+            var legend = Aisling.LegendBook.LegendMarks.ToList();
+            foreach (var God in legend)
+                if (God.Category == "Initiates")
+                {
+                    Aisling.LegendBook.LegendMarks.Remove(God);
+                    Legend.RemoveFromDB(Aisling.Client, God);
+                }
+        }
+    }
+    public void AltarCount()
+    {
+        {
+            var legend = Aisling.LegendBook.LegendMarks.ToList();
+            foreach (var God in legend)
+                if (God.Category == "DanaanAltar")
+                {
+                    Aisling.LegendBook.LegendMarks.Remove(God);
+                    Legend.RemoveFromDB(Aisling.Client, God);
+                }
+        }
+    }
+    #endregion Regular Legend Counters
+    #region Spell Methods
+    public GameClient ApproachGroup(Aisling targetAisling, IReadOnlyList<string> allowedMaps)
+    {
+        var client = Aisling.Client;
+        if (client.Aisling.PartyMembers != null)
+        {
+            if (client.Aisling.GroupParty.PartyMembers.Contains(targetAisling))
+            {
+                //don't include yourself.
+                if (targetAisling.Serial == Aisling.Serial)
+                {
+                    Aisling.Client.SendMessage(0x02, "You can't teleport to yourself.");
+                    return this;
+                }
+
+                //only work on maps we allow.
+                if (!allowedMaps.Contains(targetAisling.Map.Name))
+                {
+                    Aisling.Client.SendMessage(0x02, "Powerful magic blocks your spell.");
+                    return this;
+                }
+                else
+                {
+                    //summon myself to player's area and position.
+
+                    client.SendMessage(0x02, $"You teleport to {targetAisling.Username}.");
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat29((ushort)67, (ushort)client.Aisling.XPos, (ushort)client.Aisling.YPos));
+                    targetAisling.Client.SendMessage(0x02, $"{client.Aisling.Username} teleports to your location.");
+                    client.TransitionToMap(targetAisling.Map, targetAisling.Position);
+                    var action = new ServerFormat1A
+                    {
+                        Serial = client.Serial,
+                        Number = (byte)(client.Aisling.Path == Class.Priest ? 0x80 :
+                            client.Aisling.Path == Class.Wizard ? 0x88 : 0x06),
+                        Speed = 30
+                    };
+
+                    client.Aisling.Show(Scope.NearbyAislings, action);
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat19(8));
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat29((ushort)67, (ushort)targetAisling.XPos, (ushort)targetAisling.YPos));
+
+                }
+            }
+            else if (!client.Aisling.GroupParty.PartyMembers.Contains(targetAisling))
+                client.SendMessage(0x02, "You may only approach a member of your party.");
+        }
+        else
+            Aisling.Client.SendMessage(0x02, "You must be grouped to use this spell.");
+
+        return this;
+    }
+    public GameClient SummonGroup(Sprite summoner, Aisling targetAisling, IReadOnlyList<string> allowedMaps)
+    {
+        if (summoner.Client.Aisling.PartyMembers != null)
+        {
+            if (summoner.Client.Aisling.GroupParty.PartyMembers.Contains(targetAisling))
+            {
+                //don't include yourself.
+                if (targetAisling.Serial == Aisling.Serial)
+                {
+                    summoner.Client.SendMessage(0x02, "You can't summon yourself.");
+                    return this;
+
+                }
+                //only work on maps we allow.
+                if (!allowedMaps.Contains(targetAisling.Map.Name) || (!allowedMaps.Contains(summoner.Map.Name)))
+                {
+                    summoner.Client.SendMessage(0x02, "Powerful magic blocks your spell.");
+                    return this;
+                }
+                else
+                {
+                    //summon player to my area and position.
+                    var client = (summoner as Aisling).Client;
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat29((ushort)67, (ushort)targetAisling.XPos, (ushort)targetAisling.YPos));
+                    targetAisling.Client.TransitionToMap(Aisling.Map, Aisling.Position);
+                    targetAisling.Client.SendMessage(0x02, $"{client.Aisling.Username} summons you to their location.");
+                    client.SendMessage(0x02, $"{targetAisling.Username} is summoned to your location.");
+                    var action = new ServerFormat1A
+                    {
+                        Serial = summoner.Serial,
+                        Number = (byte)(client.Aisling.Path == Class.Priest ? 0x80 :
+                            client.Aisling.Path == Class.Wizard ? 0x88 : 0x06),
+                        Speed = 30
+                    };
+
+                    client.Aisling.Show(Scope.NearbyAislings, action);
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat19(8));
+                    client.Aisling.Show(Scope.NearbyAislings, new ServerFormat29((ushort)67, (ushort)summoner.XPos, (ushort)summoner.YPos));
+
+                }
+            }
+            else if (!summoner.Client.Aisling.GroupParty.PartyMembers.Contains(targetAisling))
+                summoner.Client.SendMessage(0x02, "You may only summon your own party members.");
+        }
+        else
+            summoner.Client.SendMessage(0x02, "You must be grouped to use this spell.");
+
+        return this;
+    }
+    #endregion Spell Methods
+    #region Religion Methods
+    #region Prayer
+    public void PrayAlone(GameClient client)
+    {
+        int r = 1 + (client.Aisling.Faith / 25);
+        if (r <= 0)
+            r = 1;
+
+        if (r > 5)
+            r = 5;
+
+        switch (r)
+        {
+            case 1:
+                {
+                    client.SendAnimation(1, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 1;
+                    client.Aisling.ExpTotal += 5;
+                    client.SendMessage(0x02, "You bow your head in reverence.");
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 2:
+                {
+                    client.SendAnimation(127, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 2;
+                    client.Aisling.ExpTotal += 100;
+                    client.SendMessage(0x02, "Your fervent prayers are heard.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 3:
+                {
+                    client.SendAnimation(128, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 3;
+                    client.Aisling.ExpTotal += 250;
+                    client.SendMessage(0x02, "You feel your Patron's hand on your shoulder.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 4:
+                {
+                    client.SendAnimation(277, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 4;
+                    client.Aisling.ExpTotal += 500;
+                    client.SendMessage(0x02, "Blinding light surrounds you as your prayers are heard.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 5:
+                {
+                    client.SendAnimation(299, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 5;
+                    client.Aisling.ExpTotal += 1000;
+                    client.SendMessage(0x02, "Your Patron recognizes your devout faith, and touches your very soul.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+        }
+
+    }
+    public void PrayTogether(GameClient client, GameClient ally)
+    {
+        int r = 1 + (client.Aisling.Faith / 25) + (ally.Aisling.Faith / 50);
+        if (r <= 0)
+            r = 1;
+
+        if (r > 6)
+            r = 6;
+
+        switch (r)
+        {
+            case 1:
+                {
+                    client.SendAnimation(1, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 1;
+                    client.Aisling.ExpTotal += 5;
+                    client.SendMessage(0x02, "You bow your head in reverence.");
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 2:
+                {
+                    client.SendAnimation(127, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 2;
+                    client.Aisling.ExpTotal += 100;
+                    client.SendMessage(0x02, "Your fervent prayers are heard.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 3:
+                {
+                    client.SendAnimation(128, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 3;
+                    client.Aisling.ExpTotal += 250;
+                    client.SendMessage(0x02, "You feel your Patron's hand on your shoulder.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 4:
+                {
+                    client.SendAnimation(277, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 4;
+                    client.Aisling.ExpTotal += 500;
+                    client.SendMessage(0x02, "Blinding light surrounds you as your prayers are heard.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 5:
+                {
+                    client.SendAnimation(299, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 5;
+                    client.Aisling.ExpTotal += 1000;
+                    client.SendMessage(0x02, "Your Patron recognizes your devout faith, and touches your very soul.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+            case 6:
+                {
+                    client.SendAnimation(299, client.Aisling, client.Aisling);
+                    client.Aisling.Faith += 7;
+                    client.Aisling.ExpTotal += 25000;
+                    client.SendMessage(0x02, "You can feel your soul becoming one with the divine.");
+                    client.SendStats(StatusFlags.All);
+                    client.Aisling.LastPrayed = DateTime.UtcNow;
+                    client.CloseDialog();
+                }
+                break;
+        }
+    }
+    #endregion Prayer
+    #endregion Religion Methods
+    #region Quest Methods
+    #region Armor Weight Check
+    public bool Circle2ArmorWeightCheck()
+    {
+        var circle2Weight = Aisling.Path switch
+        {
+            Class.Warrior => 14,
+            Class.Rogue => 6,
+            Class.Wizard => 6,
+            Class.Priest => 5,
+            Class.Monk => 6,
+            _ => 0
+        };
+        if (Aisling.CurrentWeight + circle2Weight <= Aisling.MaximumWeight)
+            return true;
+        else
+            return false;
+    }
+    public bool Circle3ArmorWeightCheck()
+    {
+        var circle3Weight = Aisling.Path switch
+        {
+            Class.Warrior => 23,
+            Class.Rogue => 9,
+            Class.Wizard => 11,
+            Class.Priest => 7,
+            Class.Monk => 8,
+            _ => 0
+        };
+        if (Aisling.CurrentWeight + circle3Weight <= Aisling.MaximumWeight)
+            return true;
+        else
+            return false;
+    }
+    public bool Circle4ArmorWeightCheck()
+    {
+        var circle4Weight = Aisling.Path switch
+        {
+            Class.Warrior => 40,
+            Class.Rogue => 13,
+            Class.Wizard => 20,
+            Class.Priest => 10,
+            Class.Monk => 11,
+            _ => 0
+        };
+        if (Aisling.CurrentWeight + circle4Weight <= Aisling.MaximumWeight)
+            return true;
+        else
+            return false;
+    }
+    public bool NightmareArmorWeightCheck()
+    {
+        var circle5Weight = Aisling.Path switch
+        {
+            Class.Warrior => 45,
+            Class.Rogue => 31,
+            Class.Wizard => 26,
+            Class.Priest => 11,
+            Class.Monk => 25,
+            _ => 0
+        };
+        if (Aisling.CurrentWeight + circle5Weight <= Aisling.MaximumWeight)
+            return true;
+        else
+            return false;
+    }
+    public bool Circle5ArmorWeightCheck()
+    {
+        var circle5Weight = Aisling.Path switch
+        {
+            Class.Warrior => 64,
+            Class.Rogue => 18,
+            Class.Wizard => 30,
+            Class.Priest => 14,
+            Class.Monk => 14,
+            _ => 0
+        };
+        if (Aisling.CurrentWeight + circle5Weight <= Aisling.MaximumWeight)
+            return true;
+        else
+            return false;
+    }
+    #endregion Armor Weight Check
+    #endregion Quest Methods
+    #region Arena Legend Updaters
+    public void ElixirWinLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Elixir in legend)
+            if (Elixir.Category == "ElixirVictory")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Elixir);
+                Legend.RemoveFromDB(Aisling.Client, Elixir);
+            }
+    }
+    public void ElixirPlayLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Elixir in legend)
+            if (Elixir.Category == "ElixirParticipation")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Elixir);
+                Legend.RemoveFromDB(Aisling.Client, Elixir);
+            }
+    }
+    public void VictoryLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Victory")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void ParticipationLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Participation")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Arena Legend Updaters
+    #region Crafting Legend Updaters
+    #region Weaving
+    public void UpdateWeavingRank()
+    {
+        WeavingLegend();
+        int weavingSuccess = Aisling.WeavingSuccess;
+        int weaving = Aisling.WeavingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Weaving",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Weaver ({0})", Aisling.WeavingSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (weavingSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            weaving++;
+            WeavingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Weaving Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[weavingSuccess]} Weaver"
+            });
+        }
+        if (weavingSuccess == 2000)
+        {
+            weaving++;
+            WeavingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Weaving Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[weavingSuccess]} Weaver"
+            });
+            SystemMessage("You have Mastered Weaving!");
+        }
+        if (weavingSuccess == 25000)
+        {
+            weaving++;
+            WeavingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Weaving Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[weavingSuccess]} Weaver"
+            });
+            SystemMessage("You are now a Legendary Weaver!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Weaving skill has improved!");
+
+        Aisling.WeavingSkill = weaving;
+    }
+    public void WeavingLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Weaving")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void WeavingRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Weaving Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Weaving
+    #region Herbalism
+    public void HerbLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var crafting in legend)
+            if (crafting.Category == "Herbalism")
+                Aisling.LegendBook.Remove(crafting, Aisling.Client);
+    }
+    public void HerbRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var crafting in legend)
+            if (crafting.Category == "Herbalism Rank")
+                Aisling.LegendBook.Remove(crafting, Aisling.Client);
+    }
+    #endregion Herbalism
+    #region Alchemy
+    public void UpdateAlchemyRank()
+    {
+        AlchemyLegend();
+        int alchemySuccess = Aisling.AlchemySuccess;
+        int alchemy = Aisling.AlchemySkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Alchemy",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Alchemist ({0})", Aisling.AlchemySuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (alchemySuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            alchemy++;
+            AlchemyRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Alchemy Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[alchemySuccess]} Alchemist"
+            });
+        }
+        if (alchemySuccess == 2000)
+        {
+            alchemy++;
+            AlchemyRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Alchemy Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[alchemySuccess]} Alchemist"
+            });
+            SystemMessage("You have Mastered Alchemy!");
+        }
+        if (alchemySuccess == 25000)
+        {
+            alchemy++;
+            AlchemyRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Alchemy Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[alchemySuccess]} Alchemist"
+            });
+            SystemMessage("You are now a Legendary Alchemist!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Alchemy skill has improved!");
+
+        Aisling.AlchemySkill = alchemy;
+    }
+    public void AlchemyLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Alchemy")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void AlchemyRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Alchemy Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Alchemy
+    #region Tailoring
+    public void UpdateTailoringRank()
+    {
+        TailoringLegend();
+        int tailoringSuccess = Aisling.TailoringSuccess;
+        int tailoring = Aisling.TailoringSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Tailoring",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Tailor ({0})", Aisling.TailoringSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (tailoringSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            tailoring++;
+            TailoringRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Tailoring Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[tailoringSuccess]} Tailor"
+            });
+        }
+        if (tailoringSuccess == 2000 && tailoring == 10)
+        {
+            tailoring++;
+            TailoringRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Tailoring Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[tailoringSuccess]} Tailor"
+            });
+            SystemMessage("You have Mastered Tailoring!");
+        }
+        if (tailoringSuccess == 25000 && tailoring == 11)
+        {
+            tailoring++;
+            TailoringRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Tailoring Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[tailoringSuccess]} Tailor"
+            });
+            SystemMessage("You are now a Legendary Tailor!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Tailoring skill has improved!");
+
+        Aisling.TailoringSkill = tailoring;
+    }
+    public void TailoringLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Tailoring")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void TailoringRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Tailoring Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Tailoring
+    #region Jeweling
+    public void UpdateJewelingRank()
+    {
+        JewelingLegend();
+        int jewelSuccess = Aisling.JewelCraftingSuccess;
+        int jewelCrafting = Aisling.JewelCraftingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Jeweling Skill",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Jeweler ({0})", Aisling.JewelCraftingSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (jewelSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            jewelCrafting++;
+            JewelingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Jeweler Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[jewelSuccess]} Jeweler"
+            });
+        }
+        if (jewelSuccess == 2000 && jewelCrafting == 10)
+        {
+            jewelCrafting++;
+            JewelingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Jeweler Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[jewelSuccess]} Jeweler"
+            });
+            SystemMessage("You have Mastered Jeweling!");
+        }
+        if (jewelSuccess == 25000 && jewelCrafting == 11)
+        {
+            jewelCrafting++;
+            JewelingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Jeweler Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[jewelSuccess]} Jeweler"
+            });
+            SystemMessage("You are now a Legendary Jeweler!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Jeweling skill has improved!");
+
+        Aisling.JewelCraftingSkill = jewelCrafting;
+    }
+    public void JewelingLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Jeweling Skill")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void JewelingRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Jeweler Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Jeweling
+    #region Gem Smithing
+    public void UpdateGemCutRank()
+    {
+        GemCutLegend();
+        int gemSuccess = Aisling.GemSuccess;
+        int gemCutting = Aisling.GemCuttingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Gemcutting",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Gemcutter ({0})", Aisling.GemSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (gemSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            gemCutting++;
+            GemCutRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Gemcutter Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[gemSuccess]} Gem Smith"
+            });
+        }
+        if (gemSuccess == 2000 && gemCutting == 10)
+        {
+            gemCutting++;
+            GemCutRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Gemcutter Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[gemSuccess]} Gem Smith"
+            });
+            SystemMessage("You have Mastered Gem Smithing!");
+        }
+        if (gemSuccess == 25000 && gemCutting == 11)
+        {
+            gemCutting++;
+            GemCutRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Gemcutter Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[gemSuccess]} Gem Smith"
+            });
+            SystemMessage("You are now a Legendary Gem Smith!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Gem Smithing skill has improved!");
+
+        Aisling.GemCuttingSkill = gemCutting;
+    }
+    public void GemCutLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Gemcutting")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void GemCutRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Gemcutter Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Gem Smithing
+    #region Smelting
+    public void UpdateSmeltingRank()
+    {
+        SmeltLegend();
+        int smeltingSuccess = Aisling.SmeltingSuccess;
+        int smelting = Aisling.SmeltingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Smelting",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Smelter ({0})", Aisling.SmeltingSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+        if (smeltingSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            smelting++;
+            SmeltRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smelting Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smeltingSuccess]} Smelter"
+            });
+        }
+        if (smeltingSuccess == 2000)
+        {
+            smelting++;
+            SmeltRank();
+            SystemMessage("You have Mastered Smelting!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smelting Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smeltingSuccess]} Smelter"
+            });
+        }
+        if (smeltingSuccess == 25000)
+        {
+            smelting++;
+            SmeltRank();
+            SystemMessage("You are now a Legendary Smelter!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smelting Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smeltingSuccess]} Smelter"
+            });
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Smelting skill has improved!");
+
+        Aisling.SmeltingSkill = smelting;
+    }
+    public void SmeltRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Smelting Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void SmeltLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Smelting")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Smelting
+    #region Forging
+    public void UpdateForgingRank()
+    {
+        ForgingLegend();
+        int forgingSuccess = Aisling.ForgingSuccess;
+        int forging = Aisling.ForgingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Forging",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Forger ({0})", Aisling.ForgingSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (forgingSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            forging++;
+            ForgingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Forging Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[forgingSuccess]} Forger"
+            });
+        }
+        if (forgingSuccess == 2000 && forging == 10)
+        {
+            forging++;
+            ForgingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Forging Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[forgingSuccess]} Forger"
+            });
+            SystemMessage("You have Mastered Forging!");
+        }
+        if (forgingSuccess == 25000 && forging == 11)
+        {
+            forging++;
+            ForgingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Forging Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[forgingSuccess]} Forger"
+            });
+            SystemMessage("You are now a Legendary Forger!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Forging skill has improved!");
+
+        Aisling.ForgingSkill = forging;
+    }
+    public void ForgingRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Forging Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void ForgingLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Forging")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Forging
+    #region Smithing
+    public void UpdateSmithingRank()
+    {
+        SmithingLegend();
+        int smithingSuccess = Aisling.SmithingSuccess;
+        int smithing = Aisling.SmithingSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Smithing",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Smith ({0})", Aisling.SmithingSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {20, "Novice" },
+            {50, "Initiate" },
+            {75, "Apprentice" },
+            {100, "Accomplished" },
+            {300, "Adept" },
+            {500, "Talented" },
+            {750, "Skilled" },
+            {1000, "Expert" },
+            {1500, "Professional" },
+            {2000, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (smithingSuccess is 20 or 50 or 75 or 100 or 300 or 500 or 750 or 1000 or 1500)
+        {
+            smithing++;
+            WeaponRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smithing Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smithingSuccess]} Smith"
+            });
+        }
+        if (smithingSuccess == 2000 && smithing == 10)
+        {
+            smithing++;
+            WeaponRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smithing Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smithingSuccess]} Smith"
+            });
+            SystemMessage("You have Mastered Smithing!");
+        }
+        if (smithingSuccess == 25000 && smithing == 11)
+        {
+            smithing++;
+            WeaponRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Smithing Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[smithingSuccess]} Smith"
+            });
+            SystemMessage("You are now a Legendary Smith!");
+            Aisling.Animate(98);
+        }
+        else
+            SystemMessage("Your Smithing skill has improved!");
+
+        Aisling.SmithingSkill = smithing;
+    }
+    public void WeaponRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Smithing Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void SmithingLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Smithing")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Smithing
+    #endregion
+    #region Gathering Legend Updaters
+    #region Mining
+    public void UpdateMiningRank()
+    {
+        int miningSuccess = Aisling.MiningSuccess;
+        int mining = Aisling.MiningSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Mining",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Miner ({0})", Aisling.MiningSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {50, "Novice" },
+            {125, "Initiate" },
+            {250, "Apprentice" },
+            {500, "Accomplished" },
+            {1000, "Adept" },
+            {1750, "Talented" },
+            {2500, "Skilled" },
+            {3500, "Expert" },
+            {5000, "Professional" },
+            {7500, "Master" },
+            {25000, "Legendary" },
+        };
+        if (miningSuccess is 50 or 125 or 250 or 500 or 1000 or 1750 or 2500 or 3500 or 5000)
+        {
+            mining++;
+            MiningRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Mining Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[miningSuccess]} Miner"
+            });
+            Aisling.MiningSkill = mining;
+        }
+        if (miningSuccess == 7500 && mining == 10)
+        {
+            mining++;
+            MiningRank();
+            SystemMessage("You have Mastered Mining!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Mining Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[miningSuccess]} Miner"
+            });
+            Aisling.MiningSkill = mining;
+            return;
+        }
+        if (miningSuccess == 25000 && mining == 11)
+        {
+            mining++;
+            MiningRank();
+            SystemMessage("You are now a Legendary Miner!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Mining Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[miningSuccess]} Miner"
+            });
+            Aisling.Animate(98);
+            Aisling.MiningSkill = mining;
+            return;
+        }
+        else
+            SystemMessage($"Your Mining skill has improved!");
+    }
+    public void MiningLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Mining")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void MiningRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Mining Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Mining
+    #region Harvesting
+    public void UpdateHarvestingRank()
+    {
+        int harvestingSuccess = Aisling.HarvestSuccess;
+        int Harvesting = Aisling.HarvestSkill;
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Harvesting",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = string.Format("Farmer ({0})", Aisling.HarvestSuccess)
+        });
+        Dictionary<int, string> ranks = new Dictionary<int, string>()
+        {
+            {50, "Novice" },
+            {125, "Initiate" },
+            {250, "Apprentice" },
+            {500, "Accomplished" },
+            {1000, "Adept" },
+            {1750, "Talented" },
+            {2500, "Skilled" },
+            {3500, "Expert" },
+            {5000, "Professional" },
+            {7500, "Master" },
+            {25000, "Legendary" },
+        };
+
+        if (harvestingSuccess is 50 or 125 or 250 or 500 or 1000 or 1750 or 2500 or 3500 or 5000)
+        {
+            Harvesting++;
+            HarvestingRank();
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Harvesting Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[harvestingSuccess]} Farmer"
+            });
+            Aisling.HarvestSkill = Harvesting;
+        }
+        if (harvestingSuccess == 7500 && Harvesting == 10)
+        {
+            Harvesting++;
+            HarvestingRank();
+            SystemMessage("You have Mastered Farming!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Harvesting Rank",
+                Color = (byte)LegendColor.White,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[harvestingSuccess]} Farmer"
+            });
+            Aisling.HarvestSkill = Harvesting;
+            return;
+        }
+        if (harvestingSuccess == 25000 && Harvesting == 11)
+        {
+            Harvesting++;
+            HarvestingRank();
+            SystemMessage("You are now a Legendary Farmer!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Harvesting Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = $"{ranks[harvestingSuccess]} Farmer"
+            });
+            Aisling.Animate(98);
+            Aisling.HarvestSkill = Harvesting;
+            return;
+        }
+        else
+            SystemMessage($"Your Farming skill has improved!");
+
+        Aisling.HarvestSkill = Harvesting;
+    }
+    public void HarvestingLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Harvesting")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    public void HarvestingRank()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Crafting in legend)
+            if (Crafting.Category == "Harvesting Rank")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Crafting);
+                Legend.RemoveFromDB(Aisling.Client, Crafting);
+            }
+    }
+    #endregion Harvesting
+    #endregion Gathering Legend Updaters
+    #region Update Herbalism Legend Marks
+    public void CheckHerbalism()
+    {
+        var Success = Aisling.HerbSuccess;
+        var Skill = Aisling.Herbalism;
+        //Count how many successes
+        Aisling.Client.HerbLegend();
+        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+        {
+            Category = "Herbalism",
+            Color = (byte)LegendColor.White,
+            Icon = (byte)LegendIcon.Victory,
+            Value = $"Herbalist ({Aisling.HerbSuccess})"
+        });
+        //If rank up required:
+        if (((Success == 20) && (Skill == 1)) ||
+            ((Success == 50) && (Skill == 2)) ||
+            ((Success == 75) && (Skill == 3)) ||
+            ((Success == 100) && (Skill == 4)) ||
+            ((Success == 300) && (Skill == 5)) ||
+            ((Success == 500) && (Skill == 6)) ||
+            ((Success == 750) && (Skill == 7)) ||
+            ((Success == 1000) && (Skill == 8)) ||
+            ((Success == 1500) && (Skill == 9)))
+        {
+            Aisling.Herbalism++;
+            Aisling.Client.SendMessage(0x02, "Your skill in Herbalism has increased!");
+
+            switch (Skill)
+            {
+                case 1:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Novice Herbalist"
+                        });
+                    }
+                    break;
+                case 2:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Initiate Herbalist"
+                        });
+                    }
+                    break;
+                case 3:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Apprentice Herbalist"
+                        });
+                    }
+                    break;
+                case 4:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Accomplished Herbalist"
+                        });
+                    }
+                    break;
+                case 5:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Adept Herbalist"
+                        });
+                    }
+                    break;
+                case 6:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Talented Herbalist"
+                        });
+                    }
+                    break;
+                case 7:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Skilled Herbalist"
+                        });
+                    }
+                    break;
+                case 8:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Expert Herbalist"
+                        });
+                    }
+                    break;
+                case 9:
+                    {
+                        Aisling.Client.HerbRank();
+                        Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+                        {
+                            Category = "Herbalism Rank",
+                            Color = (byte)LegendColor.White,
+                            Icon = (byte)LegendIcon.Victory,
+                            Value = "Professional Herbalist"
+                        });
+                    }
+                    break;
+            }
+        }
+        if ((Success >= 2000) && (Skill == 10))
+        {
+            Aisling.Herbalism++;
+            Aisling.Client.HerbRank();
+            Aisling.Client.SendMessage(0x02, "You have Mastered Herbalism!");
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Herbalism Rank",
+                Color = (byte)LegendColor.Blue,
+                Icon = (byte)LegendIcon.Victory,
+                Value = "Master Herbalist"
+            });
+        }
+        if ((Success >= 25000) && (Skill == 11))
+        {
+            Aisling.Herbalism++;
+            Aisling.Client.HerbRank();
+            Aisling.Client.SendMessage(0x02, "You are now a Legendary Herbalist!");
+            Aisling.Animate(98);
+            Aisling.LegendBook.AddLegend(Aisling.Client, new Legend.LegendItem
+            {
+                Category = "Herbalism Rank",
+                Color = (byte)LegendColor.Yellow,
+                Icon = (byte)LegendIcon.Victory,
+                Value = "Master Herbalist"
+            });
+        }
+    }
+    #endregion Update Herbalism Legend Marks
+    #region Crafting Methods
+    #region Tailoring
+    public void TailorCircle1()
+    {
+        var TailorLevel = Aisling.TailoringSkill;
+        var Tailor = 50.0 + (TailorLevel * 5);
+        if ((Aisling.Religion == 4) && Aisling.HasBuff("Industry"))
+            Tailor += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Plain Fabric", 2);
+
+        if (r + Tailor >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Dobok" : "Earth Bodice";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Cowl" : "Gorget Gown";
+                    break;
+                case 3:
+                    gearName = (sex == 1) ? "Gardcorp" : "Magi Skirt";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+
+            if (Aisling.TailoringSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.TailoringSuccess++;
+                UpdateTailoringRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + Tailor < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void TailorCircle2()
+    {
+        var TailorLevel = Aisling.TailoringSkill;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+        var Tailor = 50.0 + ((TailorLevel - 2) * 4);
+        if ((Aisling.Religion == 4) && Aisling.HasBuff("Industry"))
+            Tailor += 10.0;
+
+        Aisling.Inventory.RemoveQuantity("Sturdy Fabric", 4);
+        Aisling.Inventory.RemoveQuantity("Plain Fabric", 2);
+
+        if (r + Tailor >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Culotte" : "Lotus Bodice";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Cloth Alb" : "Mystic Gown";
+                    break;
+                case 3:
+                    gearName = (sex == 1) ? "Journeyman" : "Benusta";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+
+            if (Aisling.TailoringSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.TailoringSuccess++;
+                UpdateTailoringRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + Tailor < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void TailorCircle3()
+    {
+        var TailorLevel = Aisling.TailoringSkill;
+        var Tailor = 50.0 + ((TailorLevel - 5) * 3);
+        if ((Aisling.Religion == 4) && Aisling.HasBuff("Industry"))
+            Tailor += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Soft Fabric", 6);
+        Aisling.Inventory.RemoveQuantity("Sturdy Fabric", 4);
+        Aisling.Inventory.RemoveQuantity("Plain Fabric", 2);
+
+        if (r + Tailor >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Earth Garb" : "Moon Bodice";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Mantle" : "Elle";
+                    break;
+                case 3:
+                    gearName = (sex == 1) ? "Lorum" : "Stoller";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+
+            if (Aisling.TailoringSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.TailoringSuccess++;
+                UpdateTailoringRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + Tailor < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void TailorCircle4()
+    {
+        var TailorLevel = Aisling.TailoringSkill;
+        var Tailor = 50.0 + ((TailorLevel - 8) * 2);
+        if ((Aisling.Religion == 4) && Aisling.HasBuff("Industry"))
+            Tailor += 10.0;
+
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Elegant Fabric", 8);
+        Aisling.Inventory.RemoveQuantity("Soft Fabric", 4);
+        Aisling.Inventory.RemoveQuantity("Sturdy Fabric", 2);
+        Aisling.Inventory.RemoveQuantity("Plain Fabric", 1);
+
+        if (r + Tailor >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Wind Garb" : "Lightning Garb";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Hierophant" : "Dolman";
+                    break;
+                case 3:
+                    gearName = (sex == 1) ? "Mane" : "Clymouth";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+
+            if (Aisling.TailoringSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.TailoringSuccess++;
+                UpdateTailoringRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + Tailor < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void TailorCircle5()
+    {
+        var Tailor = 50.0;
+        if ((Aisling.Religion == 4) && Aisling.HasBuff("Industry"))
+            Tailor += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Shimmering Fabric", 10);
+        Aisling.Inventory.RemoveQuantity("Elegant Fabric", 5);
+        Aisling.Inventory.RemoveQuantity("Soft Fabric", 3);
+        Aisling.Inventory.RemoveQuantity("Sturdy Fabric", 2);
+        Aisling.Inventory.RemoveQuantity("Plain Fabric", 1);
+
+        if (r + Tailor >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Mountain Garb" : "Sea Garb";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Dalmatica" : "Bangasart";
+                    break;
+                case 3:
+                    gearName = (sex == 1) ? "Duin-Uasal" : "Clamyth";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+
+            if (Aisling.TailoringSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.TailoringSuccess++;
+                UpdateTailoringRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + Tailor < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+
+    #endregion Tailoring
+    #region Smithing
+    public void SmithWeapon()
+    {
+        var smithLevel = Aisling.SmithingSkill;
+        var smithSkill = 50.0 + (smithLevel * 5.0);
+        int r = rand.Next(0, 101);
+        string weaponName = Aisling.SmithName;
+        var weaponGroup = Aisling.CraftCircle;
+        var weapon = new Item();
+        if ((Aisling.Religion == 7) && Aisling.HasBuff("Industry"))
+            smithSkill += 10.0;
+
+        if (Aisling.CraftCircle != 8)
+            Aisling.RecipeDifficulty = Aisling.CraftCircle;
+        else
+            Aisling.RecipeDifficulty = 8;
+
+        switch (weaponGroup)
+        {
+            case 1:
+                {
+                    Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+                }
+                break;
+            case 2:
+                {
+                    Aisling.Inventory.RemoveQuantity("Bronze Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+                    smithSkill -= 2.5;
+                }
+                break;
+            case 3:
+                {
+                    Aisling.Inventory.RemoveQuantity("Silver Ingot", 1);
+                    Aisling.Inventory.RemoveQuantity("Bronze Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+                    smithSkill -= 5.0;
+                }
+                break;
+            case 4:
+                {
+                    Aisling.Inventory.RemoveQuantity("Silver Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Bronze Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Bronze Ingot", 1);
+                    smithSkill -= 7.5;
+                }
+                break;
+            case 5:
+                {
+                    Aisling.Inventory.RemoveQuantity("Silver Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Bronze Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Bronze Ingot", 1);
+                    smithSkill -= 10.0;
+                }
+                break;
+            case 6:
+                {
+                    Aisling.Inventory.RemoveQuantity("Silver Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Mythril Ingot", 1);
+                    smithSkill -= 12.5;
+                }
+                break;
+            case 7:
+                {
+                    Aisling.Inventory.RemoveQuantity("Silver Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Mythril Ingot", 2);
+                    smithSkill -= 15.0;
+                }
+                break;
+            case 8:
+                {
+                    Aisling.Inventory.RemoveQuantity("Mythril Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Mythril Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Hy-Brasyl Ingot", 1);
+                    smithSkill -= 17.5;
+                }
+                break;
+            case 9:
+                {
+                    Aisling.Inventory.RemoveQuantity("Hy-Brasyl Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Hy-Brasyl Ingot", 1);
+                    Aisling.Inventory.RemoveQuantity("Talgonite Ingot", 1);
+                    smithSkill -= 20.0;
+                }
+                break;
+            case 10:
+                {
+                    Aisling.Inventory.RemoveQuantity("Hy-Brasyl Sheet", 2);
+                    Aisling.Inventory.RemoveQuantity("Hy-Brasyl Ingot", 2);
+                    Aisling.Inventory.RemoveQuantity("Talgonite Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Talgonite Ingot", 1);
+                    smithSkill -= 25.0;
+                }
+                break;
+            case 11:
+                {
+                    Aisling.Inventory.RemoveQuantity("Finished Rose Quartz", 3);
+                    Aisling.Inventory.RemoveQuantity("Mythril Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity("Mythril Ingot", 2);
+                    smithSkill -= 17.5;
+                }
+                break;
+
+        }
+
+        if (r + smithSkill >= 100)
+        {
+            weapon = Item.Create(Aisling, weaponName);
+            Aisling.Bank.Deposit(weapon);
+            SendMessage(0x02, $"You have succeeded! {weapon.Template.Name} sent to storage.");
+            if (Aisling.SmithingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.SmithingSuccess++;
+                UpdateSmithingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        if (r + smithSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    #endregion Smithing
+    #region Forging
+    public void ForgeCircle1()
+    {
+        var forgingLevel = Aisling.ForgingSkill;
+        var forgingSkill = 50.0 + (forgingLevel * 5);
+        if ((Aisling.Religion == 3) && Aisling.HasBuff("Industry"))
+            forgingSkill += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+
+        if (r + forgingSkill >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Leather Tunic" : "Leather Bliaut";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Scout Leather" : "Cotte";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+            if (Aisling.ForgingSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.ForgingSuccess++;
+                UpdateForgingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + forgingSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void ForgeCircle2()
+    {
+        var forgingLevel = Aisling.ForgingSkill;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+        var forgingSkill = 50.0 + ((forgingLevel - 2) * 4);
+        if ((Aisling.Religion == 3) && Aisling.HasBuff("Industry"))
+            forgingSkill += 10.0;
+
+        Aisling.Inventory.RemoveQuantity("Silver Ingot", 4);
+        Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+
+        if (r + forgingSkill >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Jupe" : "Cuirass";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Dwarvish Leather" : "Brigandine";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+            if (Aisling.ForgingSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.ForgingSuccess++;
+                UpdateForgingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + forgingSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void ForgeCircle3()
+    {
+        var forgingLevel = Aisling.ForgingSkill;
+        var forgingSkill = 50.0 + ((forgingLevel - 5) * 3);
+        if ((Aisling.Religion == 3) && Aisling.HasBuff("Industry"))
+            forgingSkill += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Mythril Ingot", 6);
+        Aisling.Inventory.RemoveQuantity("Silver Ingot", 4);
+        Aisling.Inventory.RemoveQuantity("Bronze Ingot", 2);
+
+        if (r + forgingSkill >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Kasmanium Armor" : "Kasmanium Hauberk";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Paluten" : "Corsette";
+                    break;
+
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+            if (Aisling.ForgingSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.ForgingSuccess++;
+                UpdateForgingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + forgingSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void ForgeCircle4()
+    {
+        var forgingLevel = Aisling.ForgingSkill;
+        var forgingSkill = 50.0 + ((forgingLevel - 8) * 2);
+        if ((Aisling.Religion == 3) && Aisling.HasBuff("Industry"))
+            forgingSkill += 10.0;
+
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Hy-Brasyl Ingot", 8);
+        Aisling.Inventory.RemoveQuantity("Mythril Ingot", 4);
+        Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+        Aisling.Inventory.RemoveQuantity("Bronze Ingot", 1);
+
+        if (r + forgingSkill >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Iplet Mail" : "Labyrinth Mail";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Keaton" : "Pebble Rose";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+            if (Aisling.ForgingSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.ForgingSuccess++;
+                UpdateForgingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + forgingSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    public void ForgeCircle5()
+    {
+        var forgingSkill = 50.0;
+        if ((Aisling.Religion == 3) && Aisling.HasBuff("Industry"))
+            forgingSkill += 10.0;
+        var Class = Aisling.CraftClass;
+        var sex = Aisling.CraftSex;
+        int r = rand.Next(0, 101);
+
+        Aisling.Inventory.RemoveQuantity("Talgonite Ingot", 10);
+        Aisling.Inventory.RemoveQuantity("Hy-Brasyl Ingot", 5);
+        Aisling.Inventory.RemoveQuantity("Mythril Ingot", 3);
+        Aisling.Inventory.RemoveQuantity("Silver Ingot", 2);
+        Aisling.Inventory.RemoveQuantity("Bronze Ingot", 1);
+
+        if (r + forgingSkill >= 100)
+        {
+            var gear = new Item();
+            string gearName;
+
+            switch (Class)
+            {
+                case 1:
+                    gearName = (sex == 1) ? "Hy-Brasyl Plate" : "Hy-Brasyl Armor";
+                    break;
+                case 2:
+                    gearName = (sex == 1) ? "Bardocle" : "Kagum";
+                    break;
+                default:
+                    gearName = "";
+                    break;
+            }
+
+            gear = Item.Create(Aisling, gearName);
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+            if (Aisling.ForgingSkill <= Aisling.RecipeDifficulty + 3)
+            {
+                Aisling.ForgingSuccess++;
+                UpdateForgingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        else if (r + forgingSkill < 100)
+        {
+            SendMessage(0x02, "The materials were destroyed.");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    #endregion Forging
+    #region Smelting
+    public void Smelt()
+    {
+        var smeltingLevel = Aisling.SmeltingSkill;
+        var smeltingSkill = 50.0 + (smeltingLevel * 5.0);
+        if ((Aisling.Religion == 8) && Aisling.HasBuff("Industry"))
+            smeltingSkill += 10.0;
+        var r = 0;
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+        var oreGrade = "";
+        var finishedProduct = "";
+        var ore = new Item();
+        switch (Aisling.CraftMaterial)
+        {
+            case 1:
+                oreGrade = "Bronze";
+                finishedProduct = "Ingot";
+
+                break;
+            case 2:
+                oreGrade = "Bronze";
+                finishedProduct = "Sheet";
+                smeltingSkill -= 5.0;
+
+                break;
+            case 3:
+                oreGrade = "Silver";
+                finishedProduct = "Ingot";
+
+                smeltingSkill -= 7.5;
+                break;
+            case 4:
+                oreGrade = "Silver";
+                finishedProduct = "Sheet";
+                smeltingSkill -= 10.0;
+
+                break;
+            case 5:
+                oreGrade = "Mythril";
+                finishedProduct = "Ingot";
+                smeltingSkill -= 12.5;
+
+                break;
+            case 6:
+                oreGrade = "Mythril";
+                finishedProduct = "Sheet";
+                smeltingSkill -= 15.0;
+
+                break;
+            case 7:
+                oreGrade = "Hy-Brasyl";
+                finishedProduct = "Ingot";
+                smeltingSkill -= 17.5;
+
+                break;
+            case 8:
+                oreGrade = "Hy-Brasyl";
+                finishedProduct = "Sheet";
+                smeltingSkill -= 20.0;
+
+                break;
+            case 9:
+                oreGrade = "Talgonite";
+                finishedProduct = "Ingot";
+                smeltingSkill -= 25.0;
+
+                break;
+            case 10:
+                oreGrade = "Talgonite";
+                finishedProduct = "Sheet";
+                smeltingSkill -= 30.0;
+
+                break;
+        }
+        if (finishedProduct == "Ingot")
+            Aisling.Inventory.RemoveQuantity($"Rough {oreGrade}", 2);
+        else
+            Aisling.Inventory.RemoveQuantity($"{oreGrade} Ingot", 2);
+        if (r + smeltingSkill >= 100)
+        {
+            ore = Item.Create(Aisling, $"{oreGrade} {finishedProduct}");
+            Aisling.Bank.Deposit(ore);
+            SystemMessage($"You are successful! {oreGrade} {finishedProduct} sent to storage.");
+            if (Aisling.SmeltingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.SmeltingSuccess++;
+                UpdateSmeltingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        if (r + smeltingSkill < 100)
+        {
+            SystemMessage($"The {oreGrade} has been ruined!");
+            Aisling.GiveItem($"{oreGrade} Shavings");
+        }
+        SendStats(StatusFlags.All);
+    }
+    #endregion Smelting
+    #region Alchemy
+    public void BrewPotion()
+    {
+        var AlchemySkill = Aisling.AlchemySkill;
+        var AlchemySuccess = 25.0 + (AlchemySkill * 5.0);
+        if ((Aisling.Religion == 1) && Aisling.HasBuff("Industry"))
+        {
+            AlchemySuccess += 10.0;
+        }
+
+        var Size = Aisling.PotionSize;
+        var Type = Aisling.PotionType;
+
+        var wineAmount = Size;
+        var plantAmount = Size * 2;
+        var itemToGive = "";
+        var randomNumber = rand.Next(0, 100);
+        var potion = new Item();
+        var successMessage = $"Your concoction was successfully sent to storage!";
+        potion.Stacks = 1;
+
+        switch (Type)
+        {
+            #region Ioc Deum
+            case 1:
+                {
+                    switch (Size)
+                    {
+                        case 1:
+                            {
+                                AlchemySuccess += 25.0;
+                                itemToGive = "Mion Ioc Deum";
+                            }
+                            break;
+                        case 2:
+                            {
+                                AlchemySuccess += 20.0;
+                                itemToGive = "Ioc Deum";
+                            }
+                            break;
+                        case 3:
+                            {
+                                AlchemySuccess += 10.0;
+                                itemToGive = "Lan Ioc Deum";
+                            }
+                            break;
+                        case 4:
+                            {
+                                AlchemySuccess += 5.0;
+                                itemToGive = "Ainmeal Ioc Deum";
+                            }
+                            break;
+                        case 5:
+                            {
+                                AlchemySuccess += 2.0;
+                                itemToGive = "Uasal Ioc Deum";
+                            }
+                            break;
+                    }
+
+                    Aisling.Inventory.RemoveQuantity("Wine", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Hydele Plant", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+            #endregion Ioc Deum
+            #region Spiorad Deum
+            //Spiorad
+            case 2:
+                {
+                    switch (Size)
+                    {
+                        case 1:
+                            {
+                                AlchemySuccess += 25.0;
+                                itemToGive = "Mion Spiorad Deum";
+                            }
+                            break;
+                        case 2:
+                            {
+                                AlchemySuccess += 20.0;
+                                itemToGive = "Spiorad Deum";
+                            }
+                            break;
+                        case 3:
+                            {
+                                AlchemySuccess += 10.0;
+                                itemToGive = "Lan Spiorad Deum";
+                            }
+                            break;
+                        case 4:
+                            {
+                                AlchemySuccess += 5.0;
+                                itemToGive = "Ainmeal Spiorad Deum";
+                            }
+                            break;
+                        case 5:
+                            {
+                                AlchemySuccess += 2.0;
+                                itemToGive = "Uasal Spiorad Deum";
+                            }
+                            break;
+                    }
+
+                    Aisling.Inventory.RemoveQuantity("Brandy", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Fifleaf Plant", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+            #endregion Spiorad Deum
+            #region Cothromach Deum
+            //Cothromach
+            case 3:
+                {
+                    switch (Size)
+                    {
+                        case 1:
+                            {
+                                AlchemySuccess += 15.0;
+                                itemToGive = "Mion Cothromach Deum";
+                            }
+                            break;
+                        case 2:
+                            {
+                                AlchemySuccess += 10.0;
+                                itemToGive = "Cothromach Deum";
+                            }
+                            break;
+                        case 3:
+                            {
+                                AlchemySuccess += 5.0;
+                                itemToGive = "Lan Cothromach Deum";
+                            }
+                            break;
+                        case 4:
+                            {
+                                AlchemySuccess += 0;
+                                itemToGive = "Ainmeal Cothromach Deum";
+                            }
+                            break;
+                        case 5:
+                            {
+                                AlchemySuccess -= 5.0;
+                                itemToGive = "Uasal Cothromach Deum";
+                            }
+                            break;
+                    }
+
+                    Aisling.Inventory.RemoveQuantity("Reagent", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Hydele Plant", plantAmount);
+                    Aisling.Inventory.RemoveQuantity("Fifleaf Plant", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+            #endregion Cothromach Deum
+            #region Betony Deum
+            //Betony
+            case 4:
+                {
+                    switch (Size)
+                    {
+                        case 1:
+                            {
+                                AlchemySuccess += 30.0;
+                                itemToGive = "Mion Betony Deum";
+                            }
+                            break;
+                        case 2:
+                            {
+                                AlchemySuccess += 25.0;
+                                itemToGive = "Betony Deum";
+                            }
+                            break;
+                        case 3:
+                            {
+                                AlchemySuccess += 20.0;
+                                itemToGive = "Lan Betony Deum";
+                            }
+                            break;
+                        case 4:
+                            {
+                                AlchemySuccess += 10.0;
+                                itemToGive = "Ainmeal Betony Deum";
+                            }
+                            break;
+                        case 5:
+                            {
+                                AlchemySuccess += 5.0;
+                                itemToGive = "Uasal Betony Deum";
+                            }
+                            break;
+                    }
+
+                    Aisling.Inventory.RemoveQuantity("Reagent", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Ancusa Plant", plantAmount);
+                    Aisling.Inventory.RemoveQuantity("Betony Plant", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+
+            #endregion Betony Deum
+            #region Other
+            //Persica
+            case 5:
+                {
+                    AlchemySuccess += 25.0;
+                    itemToGive = "Persica Deum";
+
+                    Aisling.Inventory.RemoveQuantity("Wine", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Persica Plant", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+            //Beothaich
+            case 6:
+                {
+
+                    AlchemySuccess += 25.0;
+                    itemToGive = "Beothaich Deum";
+                    Aisling.Inventory.RemoveQuantity("Brandy", 1);
+                    Aisling.Inventory.RemoveQuantity("Grapes", 2);
+                    Aisling.Inventory.RemoveQuantity("Cherries", 1);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        potion.Stacks = 3;
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+            //Hemloch
+            case 7:
+                {
+                    AlchemySuccess -= 10.0;
+                    itemToGive = "Hemloch Deum";
+
+                    Aisling.Inventory.RemoveQuantity("Reagent", wineAmount);
+                    Aisling.Inventory.RemoveQuantity("Hemloch Plant", plantAmount);
+                    Aisling.Inventory.RemoveQuantity("Cherries", plantAmount);
+
+                    if (randomNumber + AlchemySuccess >= 100)
+                    {
+                        potion = Item.Create(Aisling, itemToGive);
+                        Aisling.Bank.Deposit(potion);
+                        Aisling.Client.SystemMessage(successMessage);
+                        if (Aisling.AlchemySkill <= Aisling.RecipeDifficulty + 2)
+                        {
+                            Aisling.AlchemySuccess++;
+                            UpdateAlchemyRank();
+                        }
+                        else
+                            SystemMessage("You cannot gain any more skill from this product.");
+                    }
+                    else
+                    {
+                        Aisling.Client.SystemMessage("Your concoction explodes!");
+                        Aisling.CurrentHp -= 250;
+                        Aisling.Animate(14);
+                    }
+
+                    Aisling.Client.SendStats(StatusFlags.All);
+                }
+                break;
+                #endregion Other
+        }
+    }
+    #endregion Alchemy
+    #region Gem Smithing
+    public void CutGem()
+    {
+        var gSmithLevel = Aisling.GemCuttingSkill;
+        var gSmithSkill = 50.0 + (gSmithLevel * 5.0);
+        var gemGrade = "";
+        var finishedProduct = "";
+        var gemName = "";
+        var r = 0;
+        var gem = new Item();
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+        if ((Aisling.Religion == 6) && Aisling.HasBuff("Industry"))
+            gSmithSkill += 10.0;
+        switch (Aisling.Gem)
+        {
+            case 1:
+                {
+                    gemName = "Beryl";
+                }
+                break;
+            case 2:
+                {
+                    gemName = "Sapphire";
+                    gSmithSkill -= 5.0;
+                }
+                break;
+            case 3:
+                {
+                    gemName = "Ruby";
+                    gSmithSkill -= 7.5;
+                }
+                break;
+            case 4:
+                {
+                    gemName = "Emerald";
+                    gSmithSkill -= 10.0;
+                }
+                break;
+            case 5:
+                {
+                    gemName = "Rose Quartz";
+                    gSmithSkill -= 15.0;
+                }
+                break;
+        }
+        switch (Aisling.GemType)
+        {
+            case 1:
+                {
+                    gemGrade = "Raw";
+                    if (gemName == "Rose Quartz")
+                        finishedProduct = "Uncut";
+                    else
+                        finishedProduct = "Flawed";
+                }
+                break;
+            case 2:
+                {
+                    gemGrade = "Flawed";
+                    finishedProduct = "Uncut";
+                    gSmithSkill -= 5.0;
+                }
+                break;
+            case 3:
+                {
+                    gemGrade = "Uncut";
+                    finishedProduct = "Finished";
+                    gSmithSkill -= 10.0;
+                }
+                break;
+            case 4:
+                {
+                    gemGrade = "Finished";
+                    finishedProduct = "Faceted";
+                    gSmithSkill -= 15.0;
+                }
+                break;
+        }
+
+        //remove items
+        switch (gemGrade)
+        {
+            case "Raw":
+                {
+                    Aisling.Inventory.RemoveQuantity($"Raw {gemName}", 2);
+                }
+                break;
+            case "Flawed":
+                {
+                    Aisling.Inventory.RemoveQuantity($"Flawed {gemName}", 2);
+                }
+                break;
+            case "Uncut":
+                {
+                    Aisling.Inventory.RemoveQuantity($"Uncut {gemName}", 2);
+                }
+                break;
+            case "Finished":
+                {
+                    Aisling.Inventory.RemoveQuantity($"Finished {gemName}", 2);
+                }
+                break;
+        }
+        //perform craft
+        if (r + gSmithSkill >= 100)
+        {
+            gem = Item.Create(Aisling, $"{finishedProduct} {gemName}");
+            Aisling.Bank.Deposit(gem);
+            SystemMessage($"You are successful! {finishedProduct} {gemName} sent to storage.");
+            if (Aisling.GemCuttingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.GemSuccess++;
+                UpdateGemCutRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+        }
+        if (r + gSmithSkill < 100)
+        {
+            Aisling.GiveItem($"{gemName} Fragments");
+            SystemMessage($"The {gemName} shatters into tiny fragments!");
+        }
+        //produce result
+        SendStats(StatusFlags.All);
+    }
+    #endregion Gem Smithing
+    #region Jeweling
+    public void CraftRing()
+    {
+        var r = 0;
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+
+        var jewelCraftingLevel = Aisling.JewelCraftingSkill;
+        var jewelCraftingSkill = 50.0 + (jewelCraftingLevel * 5);
+        if ((Aisling.Religion == 5) && Aisling.HasBuff("Industry"))
+            jewelCraftingSkill += 10.0;
+        var Metal = Aisling.RingMat;
+        var Metals = "";
+        var Gems = "";
+
+        switch (Aisling.RingMat)
+        {
+            case 1:
+                {
+                    Metals = "Bronze";
+                }
+                break;
+            case 2:
+                {
+                    Metals = "Silver";
+                    jewelCraftingSkill -= 5.0;
+                }
+                break;
+            case 3:
+                {
+                    Metals = "Mythril";
+                    jewelCraftingSkill -= 10.0;
+                }
+                break;
+            case 4:
+                {
+                    Metals = "Hy-Brasyl";
+                    jewelCraftingSkill -= 20.0;
+                }
+                break;
+            case 5:
+                {
+                    Metals = "Talgonite";
+                    jewelCraftingSkill -= 25.0;
+                }
+                break;
+
+        }
+        switch (Aisling.RingGem)
+        {
+            case 1: { Gems = "Beryl"; } break;
+            case 2: { Gems = "Sapphire"; } break;
+            case 3: { Gems = "Ruby"; } break;
+            case 4: { Gems = "Emerald"; } break;
+            case 5: { Gems = "Rose Quartz"; } break;
+        }
+        switch (Metal)
+        {
+            case 1:
+                {
+                    Aisling.Inventory.RemoveQuantity($"Flawed {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"{Metals} Sheet", 2);
+                }
+                break;
+            case 2:
+                {
+                    Aisling.Inventory.RemoveQuantity($"Uncut {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"{Metals} Sheet", 2);
+                }
+                break;
+            case 3:
+                {
+                    Aisling.Inventory.RemoveQuantity($"Finished {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"{Metals} Sheet", 2);
+                }
+                break;
+            case 4:
+                {
+                    Aisling.Inventory.RemoveQuantity($"Finished {Gems}", 3);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"{Metals} Sheet", 2);
+                }
+                break;
+            case 5:
+                {
+                    Aisling.Inventory.RemoveQuantity($"Finished {Gems}", 5);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {Gems}", 5);
+                    Aisling.Inventory.RemoveQuantity($"{Metals} Sheet", 2);
+                }
+                break;
+        }
+
+        if (r + jewelCraftingSkill >= 100)
+        {
+            var itemname = $"{Metals} {Gems} Ring";
+            var basegear = new Item();
+            var gearTemplate = ServerContext.GlobalItemTemplateCache[itemname];
+            {
+                basegear.Template = gearTemplate;
+            }
+            var gear = new Item
+            {
+                Template = basegear.Template,
+                DisplayImage = (ushort)basegear.Template.DisplayImage,
+                Image = (ushort)basegear.Template.Image,
+                Color = (byte)basegear.Template.Color,
+                Stacks = 1,
+                ItemId = Generator.GenerateNumber(),
+            };
+            if (Aisling.JewelCraftingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.JewelCraftingSuccess++;
+                UpdateJewelingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+        }
+        if (r + jewelCraftingSkill < 100)
+        {
+            Aisling.Client.SendMessage(0x02, "You have failed and destroyed the materials in the process!");
+        }
+
+        Aisling.Client.SendStats(StatusFlags.All);
+    }
+    public void CraftNecklace()
+    {
+        int r = 0;
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+        var jewelCraftingLevel = Aisling.JewelCraftingSkill;
+        var jewelCraftingSkill = 50.0 + (jewelCraftingLevel * 5);
+        if ((Aisling.Religion == 5) && Aisling.HasBuff("Industry"))
+            jewelCraftingSkill += 10.0;
+        string Gems = string.Empty;
+        string Grade = string.Empty;
+        switch (Aisling.NecklaceType)
+        {
+            case 1:
+                {
+                    Gems = "Beryl";
+                }
+                break;
+            case 2:
+                {
+                    Gems = "Sapphire";
+                    jewelCraftingSkill -= 5.0;
+                }
+                break;
+            case 3:
+                {
+                    Gems = "Ruby";
+                    jewelCraftingSkill -= 10.0;
+                }
+                break;
+            case 4:
+                {
+                    Gems = "Emerald";
+                    jewelCraftingSkill -= 20.0;
+                }
+                break;
+            case 5:
+                {
+                    Gems = "Rose Quartz";
+                    jewelCraftingSkill -= 30.0;
+                }
+                break;
+        }
+        switch (Aisling.NecklaceGrade)
+        {
+            case 1:
+                {
+                    Grade = "Basic";
+                    Aisling.Inventory.RemoveQuantity($"Flawed {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Bronze Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity($"Plain Fabric", 1);
+                }
+                break;
+            case 2:
+                {
+                    Grade = "Flawed";
+                    Aisling.Inventory.RemoveQuantity($"Uncut {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Silver Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity($"Sturdy Fabric", 1);
+                }
+                break;
+            case 3:
+                {
+                    Grade = "Fine";
+                    Aisling.Inventory.RemoveQuantity($"Finished {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Mythril Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity($"Soft Fabric", 1);
+                }
+                break;
+            case 4:
+                {
+                    Grade = "Flawless";
+                    Aisling.Inventory.RemoveQuantity($"Finished {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {Gems}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Hy-Brasyl Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity($"Elegant Fabric", 1);
+                }
+                break;
+            case 5:
+                {
+                    Grade = "Perfect";
+                    Aisling.Inventory.RemoveQuantity($"Faceted {Gems}", 2);
+                    Aisling.Inventory.RemoveQuantity($"Talgonite Sheet", 1);
+                    Aisling.Inventory.RemoveQuantity($"Shimmering Fabric", 1);
+                }
+                break;
+        }
+        //If Failed
+        if (r + jewelCraftingSkill < 100)
+        {
+            Aisling.Client.SystemMessage("You have failed and destroyed the materials in the process!");
+        }
+        //If Successful
+        if (r + jewelCraftingSkill >= 100)
+        {
+            var itemname = $"{Grade} {Gems} Necklace";
+            var basegear = new Item();
+            var gearTemplate = ServerContext.GlobalItemTemplateCache[itemname];
+            {
+                basegear.Template = gearTemplate;
+            }
+            var gear = new Item
+            {
+                Template = basegear.Template,
+                DisplayImage = basegear.Template.DisplayImage,
+                Image = basegear.Template.Image,
+                Color = (byte)basegear.Template.Color,
+                Stacks = 1,
+                ItemId = Generator.GenerateNumber(),
+            };
+            if (Aisling.JewelCraftingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.JewelCraftingSuccess++;
+                UpdateJewelingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+            Aisling.Bank.Deposit(gear);
+            SendMessage(0x02, $"You have succeeded! {gear.Template.Name} sent to storage.");
+        }
+
+        Aisling.Client.SendStats(StatusFlags.All);
+    }
+    public void CraftEarrings()
+    { }
+    public void AddJewel()
+    {
+        var r = 0;
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+        var jewelCraftingLevel = Aisling.JewelCraftingSkill;
+        var jewelCraftingSkill = 50.0 + (jewelCraftingLevel * 5);
+        if ((Aisling.Religion == 5) && Aisling.HasBuff("Industry"))
+            jewelCraftingSkill += 10;
+        var gem = "";
+        var material = "";
+        var slot = "";
+
+        switch (Aisling.GemType)
+        {
+            case 1: { gem = "Sapphire"; } break;
+            case 2: { gem = "Ruby"; } break;
+            case 3: { gem = "Emerald"; } break;
+            case 4: { gem = "Rose Quartz"; } break;//Specific crafts only.
+        }
+        switch (Aisling.CraftSlot)
+        {
+            case 1:
+                { slot = "Bracer"; }
+                break;
+            case 2:
+                { slot = "Gauntlet"; }
+                break;
+            case 3:
+                { slot = "Greaves"; }
+                break;
+            case 4:
+                { slot = "Shield"; }
+                break;
+        }
+        //take items
+        switch (Aisling.CraftMaterial)
+        {
+            //Wooden
+            case 1:
+                {
+                    material = "Wooden";
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Flawed {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Bronze Ingot", 1);
+                    Aisling.Inventory.RemoveQuantity($"Bronze Sheet", 1);
+                }
+                break;
+            //Leather
+            case 2:
+                {
+                    material = "Leather";
+                    jewelCraftingSkill -= 5.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Flawed {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Bronze Sheet", 2);
+                }
+                break;
+            //Bronze
+            case 3:
+                {
+                    material = "Bronze";
+                    jewelCraftingSkill -= 10.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Finished {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Bronze Sheet", 2);
+                }
+                break;
+            //Iron
+            case 4:
+                {
+                    material = "Iron";
+                    jewelCraftingSkill -= 12.5;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Uncut {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Silver Sheet", 2);
+                }
+                break;
+            //Silver
+            case 5:
+                {
+                    //Doesn't exist?
+                    material = "Silver";
+                    jewelCraftingSkill -= 15.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted Beryl", 1);
+                    Aisling.Inventory.RemoveQuantity($"Silver Sheet", 2);
+                }
+                break;
+            //Mythril
+            case 6:
+                {
+                    material = "Mythril";
+                    jewelCraftingSkill -= 20.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {gem}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Mythril Sheet", 2);
+                }
+                break;
+            //Hy-Brasyl
+            case 7:
+                {
+                    material = "Hy-Brasyl";
+                    jewelCraftingSkill -= 25.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {gem}", 2);
+                    Aisling.Inventory.RemoveQuantity($"Hy-Brasyl Sheet", 2);
+                }
+                break;
+            //Talos
+            case 8:
+                {
+                    material = "Talos";
+                    jewelCraftingSkill -= 30.0;
+                    Aisling.Inventory.RemoveQuantity($"{material} {slot}", 1);
+                    Aisling.Inventory.RemoveQuantity($"Faceted {gem}", 3);
+                    Aisling.Inventory.RemoveQuantity($"Talgonite Sheet", 2);
+                }
+                break;
+
+        }
+
+        //success
+        if (r + jewelCraftingSkill >= 100)
+        {
+            var itemname = $"{gem} {material} {slot}";
+            var basegear = new Item();
+            var gearTemplate = ServerContext.GlobalItemTemplateCache[itemname];
+            {
+                basegear.Template = gearTemplate;
+            }
+            var gear = new Item
+            {
+                Template = basegear.Template,
+                DisplayImage = basegear.Template.DisplayImage,
+                Image = basegear.Template.Image,
+                Color = (byte)basegear.Template.Color,
+                Stacks = 1,
+                ItemId = Generator.GenerateNumber(),
+            };
+
+            if (Aisling.JewelCraftingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.JewelCraftingSuccess++;
+                UpdateJewelingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+            Aisling.Bank.Deposit(gear);
+            SystemMessage($"You have succeeded! {gear.Template.Name} sent to storage.");
+        }
+        // or fail?
+        if (r + jewelCraftingSkill < 100)
+        {
+            SystemMessage("The materials were destroyed in the process.");
+        }
+        //final messages
+        Aisling.Client.SendStats(StatusFlags.All);
+    }
+    #endregion Jeweling
+    #region Weaving
+    public void Weave()
+    {
+        var weavingLevel = Aisling.WeavingSkill;
+        var weavingSkill = 50.0 + (weavingLevel * 5.0);
+        if ((Aisling.Religion == 2) && Aisling.HasBuff("Industry"))
+            weavingSkill += 10.0;
+        var fiberGrade = string.Empty;
+        var finishedProduct = string.Empty;
+        var r = 0;
+        lock (Generator.Random)
+            r = Generator.Random.Next(0, 101);
+        var fiber = new Item();
+        switch (Aisling.Fiber)
+        {
+            case 1:
+                {
+                    fiberGrade = "Rough";
+                    finishedProduct = "Plain";
+                }
+                break;
+            case 2:
+                {
+                    fiberGrade = "Thick";
+                    finishedProduct = "Sturdy";
+                    weavingSkill -= 5.0;
+                }
+                break;
+            case 3:
+                {
+                    fiberGrade = "Fine";
+                    finishedProduct = "Soft";
+                    weavingSkill -= 10.0;
+                }
+                break;
+            case 4:
+                {
+                    fiberGrade = "Delicate";
+                    finishedProduct = "Elegant";
+                    weavingSkill -= 20.0;
+                }
+                break;
+            case 5:
+                {
+                    fiberGrade = "Rich";
+                    finishedProduct = "Shimmering";
+                    weavingSkill -= 30.0;
+                }
+                break;
+        }
+
+        Aisling.Inventory.RemoveQuantity($"{fiberGrade} Fiber", 2);
+        if (r + weavingSkill >= 100)
+        {
+            if (Aisling.WeavingSkill <= Aisling.RecipeDifficulty + 2)
+            {
+                Aisling.WeavingSuccess++;
+                UpdateWeavingRank();
+            }
+            else
+                SystemMessage("You cannot gain any more skill from this product.");
+            fiber = Item.Create(Aisling, $"{finishedProduct} Fabric");
+            Aisling.Bank.Deposit(fiber);
+            SystemMessage($"You are successful! {finishedProduct} Fabric sent to storage.");
+        }
+        if (r + weavingSkill < 100)
+        {
+            Aisling.GiveItem($"{fiberGrade} Tatters");
+            SystemMessage($"The {fiberGrade} Fiber has been ruined!");
+        }
+
+        SendStats(StatusFlags.All);
+    }
+    #endregion Weaving
+    #region Gathering
+    public bool ShouldGather()
+    {
+        var herbalism = Aisling.Herbalism;
+        var gather = 30.0 + (herbalism * 5);
+
+        if (Aisling.HasBuff("Industry"))
+            gather += 10.0;
+
+        var r = rand.Next(0, 101);
+
+        if (r + gather >= 100)
+            return true;
+
+        Aisling.Client.SendMessage(0x02, "You destroyed that which you were trying to harvest.");
+
+        return false;
+    }
+    #endregion Gathering
+    #endregion Crafting Methods
+    #region Sgrios Scars
+    public void ScarLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Scar in legend)
+            if (Scar.Category == "Scar")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Scar);
+                Legend.RemoveFromDB(Aisling.Client, Scar);
+            }
+    }
+    #endregion Sgrios Scars
+    #region Class Change Methods
+    public void ClassChange(GameClient client)
+    {
+        client.Aisling.EquipmentManager.RemoveFromExisting(1);
+        client.Aisling.EquipmentManager.RemoveFromExisting(2);
+        client.Aisling.EquipmentManager.RemoveFromExisting(3);
+        client.Aisling.EquipmentManager.RemoveFromExisting(4);
+        client.Aisling.EquipmentManager.RemoveFromExisting(5);
+        client.Aisling.EquipmentManager.RemoveFromExisting(6);
+        client.Aisling.EquipmentManager.RemoveFromExisting(7);
+        client.Aisling.EquipmentManager.RemoveFromExisting(8);
+        client.Aisling.EquipmentManager.RemoveFromExisting(9);
+        client.Aisling.EquipmentManager.RemoveFromExisting(10);
+        client.Aisling.EquipmentManager.RemoveFromExisting(11);
+        client.Aisling.EquipmentManager.RemoveFromExisting(12);
+        client.Aisling.EquipmentManager.RemoveFromExisting(13);
+        client.Aisling.EquipmentManager.RemoveFromExisting(14);
+        client.Aisling.EquipmentManager.RemoveFromExisting(15);
+        client.Aisling.EquipmentManager.RemoveFromExisting(16);
+        client.Aisling.EquipmentManager.RemoveFromExisting(17);
+        client.Aisling.ExpLevel = 1;
+        client.Aisling.ExpNext = 60;
+        client.Aisling.ExpTotal = 0;
+        client.Aisling._Str = 3;
+        client.Aisling._Int = 3;
+        client.Aisling._Wis = 3;
+        client.Aisling._Con = 3;
+        client.Aisling._Dex = 3;
+        client.Aisling.StatPoints = 14;
+        client.Aisling._MaximumHp = 200;
+        client.Aisling._MaximumMp = 100;
+        var spellbook = client.Aisling.SpellBook.Get(i => i.Level > 0).ToList();
+        var skillbook = client.Aisling.SkillBook.Get(i => i.Level > 0).ToList();
+        foreach (var spell in spellbook)
+        {
+            spell.Level = 0;
+            spell.Casts = 0;
+        }
+        foreach (var skill in skillbook)
+        {
+            skill.Level = 0;
+            skill.Uses = 0;
+        }
+        client.Save();
+        client.LoadSpellBook();
+        client.LoadSkillBook();
+        client.SendStats(StatusFlags.All);
+
+    }
+    public void NewClass(GameClient client)
+    {
+        client.Aisling.EquipmentManager.RemoveFromExisting(1);
+        client.Aisling.EquipmentManager.RemoveFromExisting(2);
+        client.Aisling.EquipmentManager.RemoveFromExisting(3);
+        client.Aisling.EquipmentManager.RemoveFromExisting(4);
+        client.Aisling.EquipmentManager.RemoveFromExisting(5);
+        client.Aisling.EquipmentManager.RemoveFromExisting(6);
+        client.Aisling.EquipmentManager.RemoveFromExisting(7);
+        client.Aisling.EquipmentManager.RemoveFromExisting(8);
+        client.Aisling.EquipmentManager.RemoveFromExisting(9);
+        client.Aisling.EquipmentManager.RemoveFromExisting(10);
+        client.Aisling.EquipmentManager.RemoveFromExisting(11);
+        client.Aisling.EquipmentManager.RemoveFromExisting(12);
+        client.Aisling.EquipmentManager.RemoveFromExisting(13);
+        client.Aisling.EquipmentManager.RemoveFromExisting(14);
+        client.Aisling.EquipmentManager.RemoveFromExisting(15);
+        client.Aisling.EquipmentManager.RemoveFromExisting(16);
+        client.Aisling.EquipmentManager.RemoveFromExisting(17);
+        client.Aisling.ExpLevel = 1;
+        client.Aisling.ExpNext = 60;
+        client.Aisling.ExpTotal = 0;
+        client.Aisling._Str = 3;
+        client.Aisling._Int = 3;
+        client.Aisling._Wis = 3;
+        client.Aisling._Con = 3;
+        client.Aisling._Dex = 3;
+        if (client.Aisling.StatPoints > 14)
+            client.Aisling.StatPoints = 14;
+
+        client.Aisling._MaximumHp = 200;
+        client.Aisling._MaximumMp = 100;
+        var spellbook = client.Aisling.SpellBook.Get(i => i.Level > 0).ToList();
+        var skillbook = client.Aisling.SkillBook.Get(i => i.Level > 0).ToList();
+        foreach (var spell in spellbook)
+        {
+            spell.Level = 0;
+            spell.Casts = 0;
+        }
+        foreach (var skill in skillbook)
+        {
+            skill.Level = 0;
+            skill.Uses = 0;
+        }
+        client.Save();
+        client.LoadSpellBook();
+        client.LoadSkillBook();
+        client.SendStats(StatusFlags.All);
+
+    }
+    #endregion Class Change Methods
+    #region Trial Methods
+    public void MasterTrials()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var mark in legend)
+            if (mark.Category is "Trials")
+                Aisling.LegendBook.LegendMarks.Remove(mark);
+    }
+    public void ResetMasterTrials()
+    {
+        Aisling.TrialOfAmbition = 0;
+        Aisling.TrialOfCommunity = 0;
+        Aisling.TrialOfKnowledge = 0;
+        Aisling.TrialOfSkill = 0;
+        Aisling.TrialOfStrength = 0;
+        Aisling.TrialOfWealth = 0;
+    }
+    #endregion Trial Methods
+    #region Kas Mines Methods
+    public void MineFloorLegend()
+    {
+        var legend = Aisling.LegendBook.LegendMarks.ToList();
+        foreach (var Floor in legend)
+            if (Floor.Category == "MineFloor")
+            {
+                Aisling.LegendBook.LegendMarks.Remove(Floor);
+                Legend.RemoveFromDB(Aisling.Client, Floor);
+            }
+    }
+
+    #endregion Kas Mines Methods
+    #region Alpha Rewards
+    public GameClient AlphaRewards(Aisling aisling, IReadOnlyList<string> minor, IReadOnlyList<string> major)
+    {
+        if (!major.Contains(aisling.Username, StringComparer.OrdinalIgnoreCase))
+        {
+            if (minor.Contains(aisling.Username, StringComparer.OrdinalIgnoreCase))
+            {
+                aisling.Alpha = 1;
+                return this;
+            }
+            else
+                return this;
+        }
+        else
+        {
+            aisling.Alpha = 2;
+            return this;
+        }
+    }
+    #endregion Alpha Rewards
+    #region Beta Rewards
+    public GameClient BetaRewards(Aisling aisling, IReadOnlyList<string> minor, IReadOnlyList<string> major)
+    {
+        if (!major.Contains(aisling.Username, StringComparer.OrdinalIgnoreCase))
+        {
+            if (minor.Contains(aisling.Username, StringComparer.OrdinalIgnoreCase))
+            {
+                aisling.Beta = 1;
+                return this;
+            }
+            else
+                return this;
+        }
+        else
+        {
+            aisling.Beta = 2;
+            return this;
+        }
+    }
+
+    #endregion Beta Rewards
+    #endregion Pill's API Modifications
 }

@@ -1,77 +1,83 @@
 ﻿using Chaos.Common.Definitions;
 using Chaos.Common.Identity;
 
-using Darkages.Enums;
+using Darkages.Common;
 using Darkages.Types;
-
-using System.Numerics;
+using Darkages.Object;
 
 namespace Darkages.Sprites;
 
 public sealed class Money : Sprite
 {
-    public long MoneyId { get; private set; }
-    private ulong Amount { get; set; }
-    public ushort Image { get; private set; }
-    private MoneySprites Type { get; set; }
+    public uint Amount { get; set; }
 
-    private Money()
-    {
-        TileType = TileContent.Money;
-    }
+    public ushort Image { get; set; }
+    public MoneySprites Type { get; set; }
 
-    public static void Create(Sprite parent, ulong amount, Position location)
+    public static void Create(Sprite parent, uint amount, Position location)
     {
-        if (parent == null) return;
+        if (parent == null)
+            return;
 
         var money = new Money();
         money.CalcAmount(amount);
-        money.Serial = EphemeralRandomIdGenerator<uint>.Shared.NextId;
-        money.MoneyId = EphemeralRandomIdGenerator<long>.Shared.NextId;
-        var readyTime = DateTime.UtcNow;
-        money.AbandonedDate = readyTime;
+
+        lock (Generator.Random)
+            money.Serial = EphemeralRandomIdGenerator<uint>.Shared.NextId;
+
+        money.AbandonedDate = DateTime.UtcNow;
         money.CurrentMapId = parent.CurrentMapId;
-        money.Pos = new Vector2(location.X, location.Y);
-        var mt = (int)money.Type;
+        money.XPos = location.X;
+        money.YPos = location.Y;
 
-        if (mt > 0) money.Image = (ushort)mt;
+        var mt = (int) money.Type;
 
-        AddObject(money);
-        ServerSetup.Instance.GlobalGroundMoneyCache.TryAdd(money.MoneyId, money);
+        if (mt > 0) 
+            money.Image = (ushort) (mt + 0x8000);
+
+        ObjectManager.AddObject(money);
     }
 
-    public static void GiveTo(Money money, Aisling aisling)
+    public void GiveTo(uint amount, Aisling aisling)
     {
-        var amount = money.Amount;
-        if (aisling.GoldPoints + amount > ServerSetup.Instance.Config.MaxCarryGold)
+        if (aisling.GoldPoints + amount < ServerSetup.Instance.Config.MaxCarryGold)
         {
-            aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, "Can't quite hold that much.");
-            return;
-        }
-        
-        aisling.GoldPoints += amount;
-        aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, $"You've received {amount} coins.");
-        aisling.Client.SendAttributes(StatUpdateType.ExpGold);
+            aisling.GoldPoints += amount;
 
-        var removed = ServerSetup.Instance.GlobalGroundMoneyCache.TryRemove(money.MoneyId, out var itemToBeRemoved);
-        if (!removed) return;
-        itemToBeRemoved.Remove();
+            if (aisling.GoldPoints > ServerSetup.Instance.Config.MaxCarryGold)
+                aisling.GoldPoints = int.MaxValue;
+
+            aisling.Client.SendServerMessage(ServerMessageType.ActiveMessage, $"You've received {amount} coin(s).");
+            aisling.Client.SendAttributes(StatUpdateType.ExpGold);
+
+            Remove();
+        }
     }
 
-    private void CalcAmount(ulong amount)
+    private void CalcAmount(uint amount)
     {
         Amount = amount;
 
-        Type = Amount switch
-        {
-            > 0 and < 10 => MoneySprites.CopperCoin,
-            >= 10 and < 100 => MoneySprites.CopperPile,
-            >= 100 and < 500 => MoneySprites.SilverCoin,
-            >= 500 and < 1000 => MoneySprites.SilverPile,
-            >= 1000 and < 50000 => MoneySprites.GoldCoin,
-            >= 50000 and < 1000000 => MoneySprites.GoldPile,
-            >= 1000000 => MoneySprites.MassGoldPile,
-            _ => Type
-        };
+        if ((Amount > 0) && (Amount < 10))
+            Type = MoneySprites.SilverCoin;
+
+        if ((Amount >= 10) && (Amount < 100))
+            Type = MoneySprites.GoldCoin;
+
+        if ((Amount >= 100) && (Amount < 1000))
+            Type = MoneySprites.SilverPile;
+
+        if (Amount >= 1000)
+            Type = MoneySprites.GoldPile;
+    }
+
+    public enum MoneySprites : short
+    {
+        GoldCoin = 0x0089,
+        SilverCoin = 0x008A,
+        CopperCoin = 0x008B,
+        GoldPile = 0x008C,
+        SilverPile = 0x008D,
+        CopperPile = 0x008E
     }
 }

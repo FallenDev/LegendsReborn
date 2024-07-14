@@ -81,6 +81,33 @@ public static class Extensions
         return (byte)direction;
     }
 
+    public static bool EqualsI(this string str1, string str2) => StringComparer.OrdinalIgnoreCase.Equals(str1, str2);
+
+    public static string EnglishJoin(this ICollection<string> items)
+    {
+        if (items.Count < 2)
+            return items.FirstOrDefault();
+
+        var first = items.First();
+        var last = items.Last();
+        var builder = new StringBuilder();
+        builder.Append(first);
+
+        foreach (var item in items.Skip(1))
+        {
+            builder.Append(item == last ? " and " : ", ");
+            builder.Append(item);
+        }
+
+        return builder.ToString();
+    }
+
+    public static bool ContainsIn(this string str1, string str2) => str1.IndexOf(str2, StringComparison.OrdinalIgnoreCase) != -1;
+
+    public static bool ContainsI(this IEnumerable<string> strs, string str) => strs.Contains(str, StringComparer.OrdinalIgnoreCase);
+
+    public static string ReplaceI(this string str, string oldValue, string newValue = "") => str.Replace(oldValue, newValue, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     ///     Returns the Direction Enum equivalent of the reverse of a given cardinal direction.
     /// </summary>

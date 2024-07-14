@@ -1,260 +1,115 @@
-﻿using Dapper;
-
-using Darkages.Database;
-using Darkages.Enums;
-using Darkages.Sprites;
+﻿using Darkages.Enums;
 using Microsoft.Data.SqlClient;
-
-using System.Data;
-using Chaos.Common.Definitions;
+using Darkages.CommandSystem.Loot.Interfaces;
 using Darkages.Types;
 using Gender = Darkages.Enums.Gender;
 
 namespace Darkages.Templates;
 
-public class ItemTemplate : Template
+public class ItemTemplate : Template, ILootDefinition
 {
-    public bool CanStack { get; init; }
-    public byte MaxStack { get; init; }
-    public ushort Image { get; init; }
-    public ushort OffHandImage { get; init; }
-    public ushort DisplayImage { get; init; }
-    public string ScriptName { get; init; }
+    public int Acmodifier { get; set; }
+    public bool CanStack { get; set; }
+    public byte CarryWeight { get; set; }
+    public Class Class { get; set; }
+    public ItemColor Color { get; set; }
+    public int Conmodifier { get; set; }
+    public ElementManager.Element DefenseElement { get; set; }
+    public int Dexmodifier { get; set; }
+    public ushort DisplayImage { get; set; }
+    public int DmgMax { get; set; }
+    public int DmgMin { get; set; }
+    public int Dmgmodifier { get; set; }
+    public decimal DropRate { get; set; }
+    public bool Enchantable { get; set; }
+    public int EquipmentSlot { get; set; }
+    public EquipSlot EquipSlot { get; set; }
+    public ItemFlags Flags { get; set; }
     public Gender Gender { get; set; }
-    public int HealthModifer { get; init; }
-    public int ManaModifer { get; init; }
-    public int StrModifer { get; init; }
-    public int IntModifer { get; init; }
-    public int WisModifer { get; init; }
-    public int ConModifer { get; init; }
-    public int DexModifer { get; init; }
-    public int AcModifer { get; init; }
-    public int MrModifer { get; init; }
-    public int HitModifer { get; init; }
-    public int DmgModifer { get; init; }
-    public int RegenModifer { get; init; }
-    public int SpellLinesModifier { get; init; }
-    public int IsPositiveSpellLines { get; init; }
+    public bool HasPants { get; set; }
+    public int Healthmodifier { get; set; }
+    public int Hitmodifier { get; set; }
+    public ushort Image { get; set; }
+    public int Intmodifier { get; set; }
+    public byte LevelRequired { get; set; }
+    public int Manamodifier { get; set; }
+    public int MaxDurability { get; set; }
+    public byte MaxStack { get; set; }
+    public int Mrmodifier { get; set; }
+    public string NpcKey { get; set; }
+    public ElementManager.Element OffenseElement { get; set; }
+    public int Regenmodifier { get; set; }
+    public string ScriptName { get; set; }
+    //Spell Line Reduction Value
+    public int SpellLineValue { get; set; }
+    //Spell Line Reduction Type
+    public int SpellType { get; set; }
     public int SpellMinValue { get; set; }
     public int SpellMaxValue { get; set; }
-    public ElementManager.Element DefenseElement { get; init; }
-    public ElementManager.Element SecondaryDefensiveElement { get; init; }
-    public ElementManager.Element OffenseElement { get; init; }
-    public ElementManager.Element SecondaryOffensiveElement { get; init; }
-    public byte CarryWeight { get; init; }
-    public ItemFlags Flags { get; init; }
-    public uint MaxDurability { get; init; }
-    public uint Value { get; init; }
-    public int EquipmentSlot { get; set; }
-    public string NpcKey { get; init; }
-    public Class Class { get; init; }
-    public ushort LevelRequired { get; init; }
-    public AdvClass JobRequired { get; init; } = AdvClass.None;
-    public ushort JobLevelRequired { get; init; }
-    public ClassStage StageRequired { get; init; }
-    public int DmgMin { get; init; }
-    public int DmgMax { get; init; }
-    public double DropRate { get; init; }
-    public bool HasPants { get; init; }
-    public ItemColor Color { get; init; }
-    public string WeaponScript { get; init; }
-    public bool Enchantable { get; init; }
-
-    public string[] GetMetaData()
+    public int SpellSetValue { get; set; }
+    public ClassStage StageRequired { get; set; }
+    public int Strmodifier { get; set; }
+    public uint Value { get; set; }
+    public uint GPValue { get; set; }
+    public string WeaponScript { get; set; }
+    public decimal Weight
     {
-        var category = string.IsNullOrEmpty(Group) ? "Other" : Group;
+        get => DropRate;
+        set { }
+    }
+    public int Wismodifier { get; set; }
 
-        if (category == "Other" && EquipmentSlot is 0 or 2)
-            category = Class.ToString();
 
-        if (category == "Other" && EquipmentSlot != 0)
-            category = ItemSlots.ItemSlotMetaValuesStoresBank(EquipmentSlot);
+    public override string[] GetMetaData()
+    {
+        var category = string.IsNullOrEmpty(Group) ? string.Empty : Group;
 
-        if (Gender == 0)
-            Gender = Gender.Unisex;
-
-        var stage = 0;
-        if (StageRequired >= ClassStage.Master)
-            stage = 1;
+        if (string.IsNullOrEmpty(category))
+            category = Class == Class.Peasant ? "All" : Class.ToString();
 
         return
         [
-            $"{LevelRequired}/{stage}/{JobLevelRequired}\n",
-            $"{ClassStrings.ItemClassToIntMetaData(Class.ToString())}\n",
-            $"{CarryWeight}\n",
-            category,
-            $"{Gender}\n{Description}"
+            LevelRequired.ToString(),
+            ((int) Class).ToString(),
+            CarryWeight.ToString(),
+
+            Gender switch
+            {
+                Gender.Unisex => category,
+                Gender.Female => category,
+                Gender.Male => category,
+                _ => throw new ArgumentOutOfRangeException()
+            },
+
+            Gender switch
+            {
+
+                Gender.Unisex => category,
+                Gender.Female => category,
+                Gender.Male => category,
+                _ => throw new ArgumentOutOfRangeException()
+            } + $" {Gender}\n{Description}"
         ];
     }
 }
-
 public static class ItemStorage
 {
-    public static void CacheFromDatabaseConsumables(string conn, string type)
-    {
-        try
-        {
-            var sConn = new SqlConnection(conn);
-            var sql = $"SELECT * FROM Zolian.dbo.{type}";
-
-            sConn.Open();
-
-            var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
-            var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
-            {
-                var max = (int)reader["MaxStack"];
-                var image = (int)reader["Image"];
-                var disImage = (int)reader["DisplayImage"];
-                var flags = ServiceStack.AutoMappingUtils.ConvertTo<ItemFlags>(reader["Flags"]);
-                var weight = (int)reader["CarryWeight"];
-                var worth = (int)reader["Worth"];
-                var itemClass = ServiceStack.AutoMappingUtils.ConvertTo<Class>(reader["Class"]);
-                var level = (int)reader["LevelRequired"];
-                var jobLevel = (int)reader["JobLevelRequired"];
-                var drop = (decimal)reader["DropRate"];
-                var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["StageRequired"]);
-                var color = ServiceStack.AutoMappingUtils.ConvertTo<ItemColor>(reader["Color"]);
-                var temp = new ItemTemplate
-                {
-                    CanStack = (bool)reader["CanStack"],
-                    MaxStack = (byte)max,
-                    Image = (ushort)image,
-                    DisplayImage = (ushort)disImage,
-                    ScriptName = reader["ScriptName"].ToString(),
-                    Flags = flags,
-                    CarryWeight = (byte)weight,
-                    Value = (uint)worth,
-                    NpcKey = reader["NpcKey"].ToString(),
-                    Class = itemClass,
-                    LevelRequired = (ushort)level,
-                    JobLevelRequired = (ushort)jobLevel,
-                    DropRate = (double)drop,
-                    StageRequired = classStage,
-                    Color = color,
-                    Name = reader["Name"].ToString(),
-                    Group = reader["GroupIn"].ToString()
-                };
-
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalItemTemplateCache[temp.Name] = temp;
-            }
-
-            reader.Close();
-            sConn.Close();
-        }
-        catch (SqlException e)
-        {
-            ServerSetup.EventsLogger(e.ToString());
-        }
-    }
-
-    public static void CacheFromDatabaseArmor(string conn, string type)
-    {
-        try
-        {
-            var sConn = new SqlConnection(conn);
-            var sql = $"SELECT * FROM Zolian.dbo.{type}";
-
-            sConn.Open();
-
-            var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
-            var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
-            {
-                var image = (int)reader["Image"];
-                var disImage = (int)reader["DisplayImage"];
-                var flags = ServiceStack.AutoMappingUtils.ConvertTo<ItemFlags>(reader["Flags"]);
-                var gender = ServiceStack.AutoMappingUtils.ConvertTo<Gender>(reader["Gender"]);
-                var weight = (int)reader["CarryWeight"];
-                var maxDura = (int)reader["MaxDurability"];
-                var worth = (int)reader["Worth"];
-                var itemClass = ServiceStack.AutoMappingUtils.ConvertTo<Class>(reader["Class"]);
-                var level = (int)reader["LevelRequired"];
-                var jobLevel = (int)reader["JobLevelRequired"];
-                var drop = (decimal)reader["DropRate"];
-                var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["StageRequired"]);
-                var color = ServiceStack.AutoMappingUtils.ConvertTo<ItemColor>(reader["Color"]);
-                var temp = new ItemTemplate
-                {
-                    Image = (ushort)image,
-                    DisplayImage = (ushort)disImage,
-                    ScriptName = reader["ScriptName"].ToString(),
-                    Flags = flags,
-                    Gender = gender,
-                    OffenseElement = ElementManager.Element.None,
-                    DefenseElement = ElementManager.Element.None,
-                    CarryWeight = (byte)weight,
-                    Enchantable = (bool)reader["Enchantable"],
-                    MaxDurability = (uint)maxDura,
-                    Value = (uint)worth,
-                    EquipmentSlot = (int)reader["EquipmentSlot"],
-                    NpcKey = "",
-                    Class = itemClass,
-                    LevelRequired = (ushort)level,
-                    JobLevelRequired = (ushort)jobLevel,
-                    DmgMin = 0,
-                    DmgMax = 0,
-                    DropRate = (double)drop,
-                    StageRequired = classStage,
-                    HasPants = (bool)reader["HasPants"],
-                    Color = color,
-                    WeaponScript = reader["ArmorScript"].ToString(),
-                    Name = reader["Name"].ToString(),
-                    Group = reader["GroupIn"].ToString(),
-                    HealthModifer = (int)reader["HP"],
-                    ManaModifer = (int)reader["MP"],
-                    AcModifer = (int)reader["ArmorClass"],
-                    StrModifer = (int)reader["Strength"],
-                    IntModifer = (int)reader["Intelligence"],
-                    WisModifer = (int)reader["Wisdom"],
-                    ConModifer = (int)reader["Constitution"],
-                    DexModifer = (int)reader["Dexterity"],
-                    MrModifer = (int)reader["MagicResistance"],
-                    HitModifer = (int)reader["Hit"],
-                    DmgModifer = (int)reader["Dmg"],
-                    RegenModifer = (int)reader["Regen"],
-                    SpellLinesModifier = 0,
-                    IsPositiveSpellLines = 0,
-                    SpellMinValue = 0,
-                    SpellMaxValue = 0
-                };
-
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalItemTemplateCache[temp.Name] = temp;
-            }
-
-            reader.Close();
-            sConn.Close();
-        }
-        catch (SqlException e)
-        {
-            ServerSetup.EventsLogger(e.ToString());
-        }
-    }
-
     public static void CacheFromDatabaseEquipment(string conn, string type)
     {
         try
         {
             var sConn = new SqlConnection(conn);
-            var sql = $"SELECT * FROM Zolian.dbo.{type}";
+            var sql = $"SELECT * FROM Legends.dbo.{type}";
 
             sConn.Open();
 
             var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
             var reader = cmd.ExecuteReader();
 
             while (reader.Read())
             {
+                var id = Convert.ToInt32(reader["ID"]);
+                var temp = new ItemTemplate();
                 var image = (int)reader["Image"];
                 var disImage = (int)reader["DisplayImage"];
                 var flags = ServiceStack.AutoMappingUtils.ConvertTo<ItemFlags>(reader["Flags"]);
@@ -263,60 +118,66 @@ public static class ItemStorage
                 var defEle = ServiceStack.AutoMappingUtils.ConvertTo<ElementManager.Element>(reader["DefenseElement"]);
                 var weight = (int)reader["CarryWeight"];
                 var maxDura = (int)reader["MaxDurability"];
-                var worth = (int)reader["Worth"];
+                var value = (int)reader["Value"];
+                var gpValue = (int)reader["GPValue"];
                 var itemClass = ServiceStack.AutoMappingUtils.ConvertTo<Class>(reader["Class"]);
                 var level = (int)reader["LevelRequired"];
-                var jobLevel = (int)reader["JobLevelRequired"];
                 var drop = (decimal)reader["DropRate"];
+                var drweight = (decimal)reader["DropWeight"];
                 var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["StageRequired"]);
                 var color = ServiceStack.AutoMappingUtils.ConvertTo<ItemColor>(reader["Color"]);
-                var temp = new ItemTemplate
-                {
-                    Image = (ushort)image,
-                    DisplayImage = (ushort)disImage,
-                    ScriptName = reader["ScriptName"].ToString(),
-                    Flags = flags,
-                    Gender = gender,
-                    OffenseElement = offEle,
-                    DefenseElement = defEle,
-                    CarryWeight = (byte)weight,
-                    Enchantable = (bool)reader["Enchantable"],
-                    MaxDurability = (uint)maxDura,
-                    Value = (uint)worth,
-                    EquipmentSlot = (int)reader["EquipmentSlot"],
-                    NpcKey = "",
-                    Class = itemClass,
-                    LevelRequired = (ushort)level,
-                    JobLevelRequired = (ushort)jobLevel,
-                    DmgMin = 0,
-                    DmgMax = 0,
-                    DropRate = (double)drop,
-                    StageRequired = classStage,
-                    HasPants = false,
-                    Color = color,
-                    WeaponScript = reader["EquipmentScript"].ToString(),
-                    Name = reader["Name"].ToString(),
-                    Group = reader["GroupIn"].ToString(),
-                    HealthModifer = (int)reader["HP"],
-                    ManaModifer = (int)reader["MP"],
-                    AcModifer = (int)reader["ArmorClass"],
-                    StrModifer = (int)reader["Strength"],
-                    IntModifer = (int)reader["Intelligence"],
-                    WisModifer = (int)reader["Wisdom"],
-                    ConModifer = (int)reader["Constitution"],
-                    DexModifer = (int)reader["Dexterity"],
-                    MrModifer = (int)reader["MagicResistance"],
-                    HitModifer = (int)reader["Hit"],
-                    DmgModifer = (int)reader["Dmg"],
-                    RegenModifer = (int)reader["Regen"],
-                    SpellLinesModifier = 0,
-                    IsPositiveSpellLines = 0,
-                    SpellMinValue = 0,
-                    SpellMaxValue = 0
-                };
+                //var spellpolicy = ServiceStack.AutoMappingUtils.ConvertTo<SpellOperator.SpellOperatorPolicy>(reader["SpellPolicy"]);
+                //var spellscope = ServiceStack.AutoMappingUtils.ConvertTo<SpellOperator.SpellOperatorScope>(reader["SpellScope"]);
 
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalItemTemplateCache[temp.Name] = temp;
+                temp.ID = id;
+                temp.Name = reader["Name"].ToString();
+                temp.Image = (ushort)image;
+                temp.DisplayImage = (ushort)disImage;
+                temp.Flags = flags;
+                temp.Gender = gender;
+                temp.OffenseElement = offEle;
+                temp.DefenseElement = defEle;
+                temp.CarryWeight = (byte)weight;
+                temp.MaxDurability = (int)maxDura;
+                temp.Value = (uint)value;
+                temp.GPValue = (uint)gpValue;
+                temp.Class = itemClass;
+                temp.LevelRequired = (byte)level;
+                temp.DropRate = drop;
+                temp.StageRequired = classStage;
+                temp.Color = color;
+                temp.ScriptName = reader["ScriptName"].ToString();
+                temp.Enchantable = (bool)reader["Enchantable"];
+                temp.EquipmentSlot = (int)reader["EquipmentSlot"];
+                temp.NpcKey = reader["NpcKey"].ToString();
+                temp.DmgMin = (int)reader["DmgMin"];
+                temp.DmgMax = (int)reader["DmgMax"];
+                temp.HasPants = (bool)reader["HasPants"];
+                temp.WeaponScript = reader["WeaponScript"].ToString();
+                temp.Group = reader["Category"].ToString();
+                temp.Healthmodifier = (int)reader["Vitality"];
+                temp.Manamodifier = (int)reader["Mana"];
+                temp.Acmodifier = (int)reader["ArmorClass"];
+                temp.Strmodifier = (int)reader["Strength"];
+                temp.Intmodifier = (int)reader["Intelligence"];
+                temp.Wismodifier = (int)reader["Wisdom"];
+                temp.Conmodifier = (int)reader["Constitution"];
+                temp.Dexmodifier = (int)reader["Dexterity"];
+                temp.Mrmodifier = (int)reader["MagicResistance"];
+                temp.Hitmodifier = (int)reader["Hit"];
+                temp.Dmgmodifier = (int)reader["Dmg"];
+                temp.Regenmodifier = (int)reader["Regen"];
+                temp.Weight = drweight;
+                temp.SpellType = (int)reader["SpellType"];
+                temp.SpellLineValue = (int)reader["SpellLineValue"];
+                temp.SpellMinValue = (int)reader["SpellMinValue"];
+                temp.SpellMaxValue = (int)reader["SpellMaxValue"];
+                temp.SpellSetValue = (int)reader["SpellSetValue"];
+                temp.Description = reader["Description"].ToString();
+
+                if (temp.Name == null) 
+                    continue;
+                ServerSetup.Instance.GlobalItemTemplateCache[temp.Name] = temp;
             }
 
             reader.Close();
@@ -324,90 +185,63 @@ public static class ItemStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.EventsLogger(e.ToString());
+            Console.WriteLine(e.ToString());
+            throw;
         }
     }
 
-    public static void CacheFromDatabaseOffense(string conn, string type)
+    public static void CacheFromDatabaseConsumables(string conn, string type)
     {
         try
         {
             var sConn = new SqlConnection(conn);
-            var sql = $"SELECT * FROM Zolian.dbo.{type}";
+            var sql = $"SELECT * FROM Legends.dbo.{type}";
 
             sConn.Open();
 
             var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
             var reader = cmd.ExecuteReader();
 
             while (reader.Read())
             {
+                var temp = new ItemTemplate();
+                var max = (int)reader["MaxStack"];
                 var image = (int)reader["Image"];
-                var offhand = (int)reader["OffHandImage"];
                 var disImage = (int)reader["DisplayImage"];
+                var gpValue = (int)reader["GPValue"];
                 var flags = ServiceStack.AutoMappingUtils.ConvertTo<ItemFlags>(reader["Flags"]);
-                var gender = ServiceStack.AutoMappingUtils.ConvertTo<Gender>(reader["Gender"]);
-                var offEle = ServiceStack.AutoMappingUtils.ConvertTo<ElementManager.Element>(reader["SecondaryOffensiveElement"]);
-                var defEle = ServiceStack.AutoMappingUtils.ConvertTo<ElementManager.Element>(reader["SecondaryDefensiveElement"]);
                 var weight = (int)reader["CarryWeight"];
-                var maxDura = (int)reader["MaxDurability"];
                 var worth = (int)reader["Worth"];
                 var itemClass = ServiceStack.AutoMappingUtils.ConvertTo<Class>(reader["Class"]);
                 var level = (int)reader["LevelRequired"];
-                var jobLevel = (int)reader["JobLevelRequired"];
                 var drop = (decimal)reader["DropRate"];
-                var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["StageRequired"]);
+                var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["Stage"]);
                 var color = ServiceStack.AutoMappingUtils.ConvertTo<ItemColor>(reader["Color"]);
-                var temp = new ItemTemplate
-                {
-                    Image = (ushort)image,
-                    OffHandImage = (ushort)offhand,
-                    DisplayImage = (ushort)disImage,
-                    ScriptName = reader["ScriptName"].ToString(),
-                    Flags = flags,
-                    Gender = gender,
-                    SecondaryOffensiveElement = offEle,
-                    SecondaryDefensiveElement = defEle,
-                    CarryWeight = (byte)weight,
-                    Enchantable = (bool)reader["Enchantable"],
-                    MaxDurability = (uint)maxDura,
-                    Value = (uint)worth,
-                    EquipmentSlot = (int)reader["EquipmentSlot"],
-                    NpcKey = reader["NpcKey"].ToString(),
-                    Class = itemClass,
-                    LevelRequired = (ushort)level,
-                    JobLevelRequired = (ushort)jobLevel,
-                    DmgMin = (int)reader["DmgMin"],
-                    DmgMax = (int)reader["DmgMax"],
-                    DropRate = (double)drop,
-                    StageRequired = classStage,
-                    HasPants = (bool)reader["HasPants"],
-                    Color = color,
-                    WeaponScript = reader["WeaponScript"].ToString(),
-                    Name = reader["Name"].ToString(),
-                    Group = reader["GroupIn"].ToString(),
-                    HealthModifer = (int)reader["HP"],
-                    ManaModifer = (int)reader["MP"],
-                    AcModifer = (int)reader["ArmorClass"],
-                    StrModifer = (int)reader["Strength"],
-                    IntModifer = (int)reader["Intelligence"],
-                    WisModifer = (int)reader["Wisdom"],
-                    ConModifer = (int)reader["Constitution"],
-                    DexModifer = (int)reader["Dexterity"],
-                    MrModifer = (int)reader["MagicResistance"],
-                    HitModifer = (int)reader["Hit"],
-                    DmgModifer = (int)reader["Dmg"],
-                    RegenModifer = (int)reader["Regen"],
-                    SpellLinesModifier = (int)reader["SpellLinesModifier"],
-                    IsPositiveSpellLines = (int)reader["IsPositiveSpellLines"],
-                    SpellMinValue = (int)reader["SpellMinValue"],
-                    SpellMaxValue = (int)reader["SpellMaxValue"]
-                };
+                var gender = ServiceStack.AutoMappingUtils.ConvertTo<Gender>(reader["Gender"]);
+                temp.CanStack = (bool)reader["CanStack"];
+                temp.MaxStack = (byte)max;
+                temp.Image = (ushort)image;
+                temp.DisplayImage = (ushort)disImage;
+                temp.ScriptName = reader["ScriptName"].ToString();
+                temp.Flags = flags;
+                temp.CarryWeight = (byte)weight;
+                temp.Value = (uint)worth;
+                temp.NpcKey = reader["NpcKey"].ToString();
+                temp.Class = itemClass;
+                temp.LevelRequired = (byte)level;
+                temp.DropRate = drop;
+                temp.StageRequired = classStage;
+                temp.Color = color;
+                temp.Name = reader["Name"].ToString();
+                temp.Group = reader["Group"].ToString();
+                temp.GPValue = (uint)gpValue;
+                temp.Gender = gender;
+                if (reader["Description"] != null)
+                    temp.Description = reader["Description"].ToString();
 
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalItemTemplateCache[temp.Name] = temp;
+                if (temp.Name == null) 
+                    continue;
+                ServerSetup.Instance.GlobalItemTemplateCache[temp.Name] = temp;
             }
 
             reader.Close();
@@ -415,162 +249,8 @@ public static class ItemStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.EventsLogger(e.ToString());
-        }
-    }
-
-    public static void CacheFromDatabaseOffenseJobs(string conn)
-    {
-        try
-        {
-            var sConn = new SqlConnection(conn);
-            const string sql = "SELECT * FROM Zolian.dbo.WeaponJobs";
-
-            sConn.Open();
-
-            var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
-            var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
-            {
-                var image = (int)reader["Image"];
-                var offhand = (int)reader["OffHandImage"];
-                var disImage = (int)reader["DisplayImage"];
-                var flags = ServiceStack.AutoMappingUtils.ConvertTo<ItemFlags>(reader["Flags"]);
-                var gender = ServiceStack.AutoMappingUtils.ConvertTo<Gender>(reader["Gender"]);
-                var offEle = ServiceStack.AutoMappingUtils.ConvertTo<ElementManager.Element>(reader["SecondaryOffensiveElement"]);
-                var defEle = ServiceStack.AutoMappingUtils.ConvertTo<ElementManager.Element>(reader["SecondaryDefensiveElement"]);
-                var weight = (int)reader["CarryWeight"];
-                var maxDura = (int)reader["MaxDurability"];
-                var worth = (int)reader["Worth"];
-                var itemClass = ServiceStack.AutoMappingUtils.ConvertTo<Class>(reader["Class"]);
-                var level = (int)reader["LevelRequired"];
-                var job = ServiceStack.AutoMappingUtils.ConvertTo<AdvClass>(reader["JobRequired"]);
-                var jobLevel = (int)reader["JobLevelRequired"];
-                var drop = (decimal)reader["DropRate"];
-                var classStage = ServiceStack.AutoMappingUtils.ConvertTo<ClassStage>(reader["StageRequired"]);
-                var color = ServiceStack.AutoMappingUtils.ConvertTo<ItemColor>(reader["Color"]);
-                var temp = new ItemTemplate
-                {
-                    Image = (ushort)image,
-                    OffHandImage = (ushort)offhand,
-                    DisplayImage = (ushort)disImage,
-                    ScriptName = reader["ScriptName"].ToString(),
-                    Flags = flags,
-                    Gender = gender,
-                    SecondaryOffensiveElement = offEle,
-                    SecondaryDefensiveElement = defEle,
-                    CarryWeight = (byte)weight,
-                    Enchantable = (bool)reader["Enchantable"],
-                    MaxDurability = (uint)maxDura,
-                    Value = (uint)worth,
-                    EquipmentSlot = (int)reader["EquipmentSlot"],
-                    NpcKey = reader["NpcKey"].ToString(),
-                    Class = itemClass,
-                    LevelRequired = (ushort)level,
-                    JobRequired = job,
-                    JobLevelRequired = (ushort)jobLevel,
-                    DmgMin = (int)reader["DmgMin"],
-                    DmgMax = (int)reader["DmgMax"],
-                    DropRate = (double)drop,
-                    StageRequired = classStage,
-                    HasPants = (bool)reader["HasPants"],
-                    Color = color,
-                    WeaponScript = reader["WeaponScript"].ToString(),
-                    Name = reader["Name"].ToString(),
-                    Group = reader["GroupIn"].ToString(),
-                    HealthModifer = (int)reader["HP"],
-                    ManaModifer = (int)reader["MP"],
-                    AcModifer = (int)reader["ArmorClass"],
-                    StrModifer = (int)reader["Strength"],
-                    IntModifer = (int)reader["Intelligence"],
-                    WisModifer = (int)reader["Wisdom"],
-                    ConModifer = (int)reader["Constitution"],
-                    DexModifer = (int)reader["Dexterity"],
-                    MrModifer = (int)reader["MagicResistance"],
-                    HitModifer = (int)reader["Hit"],
-                    DmgModifer = (int)reader["Dmg"],
-                    RegenModifer = (int)reader["Regen"],
-                    SpellLinesModifier = (int)reader["SpellLinesModifier"],
-                    IsPositiveSpellLines = (int)reader["IsPositiveSpellLines"],
-                    SpellMinValue = (int)reader["SpellMinValue"],
-                    SpellMaxValue = (int)reader["SpellMaxValue"]
-                };
-
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalItemTemplateCache[temp.Name] = temp;
-            }
-
-            reader.Close();
-            sConn.Close();
-        }
-        catch (SqlException e)
-        {
-            ServerSetup.EventsLogger(e.ToString());
-        }
-    }
-
-    public static void PlayerItemsDbToCache()
-    {
-        try
-        {
-            // Clear cache prior to load
-            ServerSetup.Instance.GlobalSqlItemCache.Clear();
-
-            const string procedure = "[LoadItemsToCache]";
-            using var sConn = new SqlConnection(AislingStorage.ConnectionString);
-            sConn.Open();
-            var itemList = sConn.Query<Item>(procedure, commandType: CommandType.StoredProcedure);
-
-            foreach (var item in itemList)
-            {
-                if (!ServerSetup.Instance.GlobalItemTemplateCache.ContainsKey(item.Name)) continue;
-
-                var itemName = item.Name;
-                var template = ServerSetup.Instance.GlobalItemTemplateCache[itemName];
-                {
-                    item.Template = template;
-                }
-
-                var color = (byte)ItemColors.ItemColorsToInt(item.Template.Color);
-
-                var newItem = new Item
-                {
-                    ItemId = item.ItemId,
-                    Template = item.Template,
-                    Name = itemName,
-                    Serial = item.Serial,
-                    ItemPane = item.ItemPane,
-                    Slot = item.Slot,
-                    InventorySlot = item.InventorySlot,
-                    Color = color,
-                    Durability = item.Durability,
-                    Identified = item.Identified,
-                    ItemVariance = item.ItemVariance,
-                    WeapVariance = item.WeapVariance,
-                    ItemQuality = item.ItemQuality,
-                    OriginalQuality = item.OriginalQuality,
-                    Stacks = item.Stacks,
-                    Enchantable = item.Template.Enchantable,
-                    Tarnished = item.Tarnished,
-                    GearEnhancement = item.GearEnhancement,
-                    ItemMaterial = item.ItemMaterial,
-                    Image = item.Template.Image,
-                    DisplayImage = item.Template.DisplayImage
-                };
-
-                newItem.GetDisplayName();
-                newItem.NoColorGetDisplayName();
-                ServerSetup.Instance.GlobalSqlItemCache.TryAdd(newItem.ItemId, newItem);
-            }
-
-            sConn.Close();
-        }
-        catch (SqlException e)
-        {
-            ServerSetup.EventsLogger(e.ToString());
+            Console.WriteLine(e.ToString());
+            throw;
         }
     }
 }

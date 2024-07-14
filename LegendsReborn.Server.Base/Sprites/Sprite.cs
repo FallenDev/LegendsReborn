@@ -98,9 +98,9 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     }
     public int Regen => (_Regen + BonusRegen).IntClamp(0, byte.MaxValue);
     public int Dmg => (_Dmg + BonusDmg).IntClamp(0, byte.MaxValue);
-    private int Ac => (_ac + BonusAc).IntClamp(-127, 127);
+    public int Ac => (_ac + BonusAc).IntClamp(-127, 127);
     public int Hit => IsBlind ? 0 : (_Hit + BonusHit).IntClamp(0, byte.MaxValue);
-    private int Mr => (_Mr + BonusMr).IntClamp(0, 70);
+    public int Mr => (_Mr + BonusMr).IntClamp(0, 70);
     public int Str => (_Str + BonusStr).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Int => (_Int + BonusInt).IntClamp(0, ServerSetup.Instance.Config.StatCap);
     public int Wis => (_Wis + BonusWis).IntClamp(0, ServerSetup.Instance.Config.StatCap);

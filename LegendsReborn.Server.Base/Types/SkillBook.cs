@@ -1,127 +1,88 @@
-﻿using Darkages.Network.Client;
+﻿using Darkages.Database;
 using Darkages.Object;
 using Darkages.Templates;
 
-using ServiceStack;
-
-using System.Collections.Concurrent;
+using Microsoft.Data.SqlClient;
+using Dapper;
 
 namespace Darkages.Types;
 
 public class SkillBook : ObjectManager
 {
-    private const int SkillLength = 88;
-    private readonly int[] _invalidSlots = [0, 36, 72, 89];
-    public readonly ConcurrentDictionary<int, Skill> Skills = new();
+    private const int SkillLength = 35 * 3;
+
+    public readonly Dictionary<int, Skill> Skills = new();
 
     public SkillBook()
     {
-        for (var i = 0; i < SkillLength; i++) Skills[i + 1] = null;
+        for (var i = 0; i < SkillLength; i++)
+            Skills[i + 1] = null;
+
+        //Skills[35] = new Skill(); //Dummy skill to ensure nothing ends up in the 'blank' space in the bottom right corner.
     }
 
-    private bool IsValidSlot(byte slot) => slot is > 0 and < SkillLength && !_invalidSlots.Contains(slot);
+    public int Length => Skills.Count;
+
+    public void Assign(Skill skill) => Set(skill);
 
     public int FindEmpty(int start = 0)
     {
-        for (var i = start; i < SkillLength; i++)
-        {
-            switch (i)
-            {
-                case 35:
-                case 71:
-                    continue;
-            }
-
-            if (Skills[i + 1] == null) return i + 1;
-        }
+        for (var i = start; i < Length; i++)
+            if (Skills[i + 1] == null)
+                return i + 1;
 
         return -1;
     }
 
-    private Skill FindInSlot(int slot)
+    public new Skill[] Get(Predicate<Skill> predicate) => Skills.Values.Where(i => (i != null) && predicate(i)).ToArray();
+
+    public bool Has(Skill s) =>
+        Skills.Where(i => i.Value != null).Select(i => i.Value.Template)
+            .FirstOrDefault(i => i.Name.Equals(s.Template.Name)) != null;
+
+    public bool Has(SkillTemplate s) =>
+        Skills.Where(i => i.Value?.Template != null).Select(i => i.Value.Template)
+            .FirstOrDefault(i => i.Name.Equals(s.Name)) != null;
+
+    public Skill Remove(byte movingFrom, bool skillDelete = false)
     {
-        Skill ret = null;
+        if (!Skills.ContainsKey(movingFrom))
+            return null;
 
-        if (Skills.TryGetValue(slot, out var skill))
-            ret = skill;
+        var copy = Skills[movingFrom];
 
-        return ret is { Template: not null } ? ret : null;
+        if (skillDelete)
+            DeleteFromAislingDb(copy);
+
+        Skills[movingFrom] = null;
+
+        return copy;
     }
 
-    public IEnumerable<Skill> GetSkills(Predicate<Skill> predicate) => Skills.Values.Where(i => i != null && predicate(i)).ToArray();
+    private void Set(Skill s) => Skills[s.Slot] = Clone<Skill>(s);
 
-    public bool HasSkill(string s)
+    public void Set(Skill s, bool clone = false) => Skills[s.Slot] = clone ? Clone<Skill>(s) : s;
+
+    private static void DeleteFromAislingDb(Skill skill)
     {
-        if (Skills == null || Skills.IsEmpty) return false;
+        var sConn = new SqlConnection(AislingStorage.ConnectionString);
 
-        return Skills.Values.Where(skill => skill is not null).Where(skill => !skill.Template.Name.IsNullOrEmpty()).Any(skill => skill.Template.Name.ToLower().Equals(s.ToLower()));
-    }
-
-    public bool Has(SkillTemplate s) => Skills.Where(i => i.Value?.Template != null).Select(i => i.Value.Template).FirstOrDefault(i => i.Name.Equals(s.Name)) != null;
-
-    public void Remove(WorldClient client, byte movingFrom)
-    {
-        if (!Skills.TryGetValue(movingFrom, out var copy)) return;
-        if (Skills.TryUpdate(movingFrom, null, copy))
-            client.SendRemoveSkillFromPane(movingFrom);
-        client.DeleteSkillFromDb(copy);
-    }
-
-    public void Set(byte slot, Skill newSkill, Skill oldSkill) => Skills.TryUpdate(slot, newSkill, oldSkill);
-
-    public bool AttemptSwap(WorldClient client, byte fromSlot, byte toSlot)
-    {
-        if (!IsValidSlot(fromSlot) || !IsValidSlot(toSlot)) return false;
-        if (fromSlot == toSlot) return true;
-
-        // Swap to advanced pane
-        if (toSlot == 35)
+        try
         {
-            var skillSlot = FindEmpty(36);
-            toSlot = (byte)skillSlot;
-        }
+            sConn.Open();
 
-        if (toSlot == 71)
+            const string cmd = "DELETE FROM LegendsPlayers.dbo.PlayersSkillBook WHERE SkillId = @SkillId";
+            sConn.Execute(cmd, new { skill.SkillId });
+
+            sConn.Close();
+        }
+        catch (SqlException e)
         {
-            var skillSlot = FindEmpty();
-            toSlot = (byte)skillSlot;
+            ServerSetup.EventsLogger(e.ToString());
         }
-
-        var skill1 = FindInSlot(fromSlot);
-        var skill2 = FindInSlot(toSlot);
-
-        if (skill1 != null)
-            client.SendRemoveSkillFromPane(skill1.Slot);
-        if (skill2 != null)
-            client.SendRemoveSkillFromPane(skill2.Slot);
-
-        if (skill1 != null && skill2 != null)
+        catch (Exception e)
         {
-            skill1.Slot = toSlot;
-            skill2.Slot = fromSlot;
-            Skills.TryUpdate(fromSlot, skill2, skill1);
-            Skills.TryUpdate(toSlot, skill1, skill2);
-            client.SendAddSkillToPane(skill1);
-            client.SendAddSkillToPane(skill2);
-            return true;
+            ServerSetup.EventsLogger(e.ToString());
         }
-
-        switch (skill1)
-        {
-            case null when skill2 != null:
-                skill2.Slot = fromSlot;
-                Skills.TryUpdate(fromSlot, skill2, null);
-                Skills.TryUpdate(toSlot, null, skill2);
-                client.SendAddSkillToPane(skill2);
-                return true;
-            case null:
-                return true;
-        }
-
-        skill1.Slot = toSlot;
-        Skills.TryUpdate(fromSlot, null, skill1);
-        Skills.TryUpdate(toSlot, skill1, null);
-        client.SendAddSkillToPane(skill1);
-        return true;
     }
 }

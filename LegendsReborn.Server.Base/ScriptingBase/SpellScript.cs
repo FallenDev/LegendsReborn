@@ -5,16 +5,18 @@ using Darkages.Types;
 
 namespace Darkages.ScriptingBase;
 
-public abstract class SpellScript(Spell spell) : ObjectManager, IScriptBase, IUseableTarget
+public abstract class SpellScript : ObjectManager, IScriptBase, IUseableTarget
 {
     public string Arguments { get; set; }
     public bool IsScriptDefault { get; set; }
-    public Spell Spell { get; set; } = spell;
+    public Spell Spell { get; set; }
+    protected SpellScript(Spell spell) => Spell = spell;
 
-    public virtual void OnActivated(Sprite sprite) { }
-    public abstract void OnFailed(Sprite sprite, Sprite target);
-    public virtual void OnSelectionToggle(Sprite sprite) { }
-    public abstract void OnSuccess(Sprite sprite, Sprite target);
+    public abstract void OnFailed(Sprite source, Sprite target);
+
+    public abstract void OnSuccess(Sprite source, Sprite target);
+
     public virtual void OnTriggeredBy(Sprite sprite, Sprite target) { }
-    public abstract void OnUse(Sprite sprite, Sprite target);
+
+    public abstract void OnUse(Sprite source, Sprite target);
 }

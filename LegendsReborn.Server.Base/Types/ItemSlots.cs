@@ -1,4 +1,45 @@
-﻿namespace Darkages.Types;
+﻿using System.ComponentModel;
+
+namespace Darkages.Types;
+
+public enum EquipSlot
+{
+    None = 0,
+
+    [Description("Weapons")] Weapon = 1,
+
+    [Description("Armors")] Armor = 2,
+
+    [Description("Shields")] Shield = 3,
+
+    [Description("Helmets")] Helmet = 4,
+
+    [Description("Earrings")] Earring = 5,
+
+    [Description("Necks")] Necklace = 6,
+
+    [Description("Rings")] LHand = 7,
+
+    [Description("Rings")] RHand = 8,
+
+    [Description("Gaunts")] LArm = 9,
+
+    [Description("Gaunts")] RArm = 10,
+
+    [Description("Belts")] Waist = 11,
+
+    [Description("Greaves")] Leg = 12,
+
+    [Description("Boots")] Foot = 13,
+
+    [Description("FirstAccessory")] FirstAcc = 14,
+
+    [Description("Overcoat")] Trousers = 15,
+
+    [Description("SecondHelmet")] Coat = 16,
+
+    [Description("SecondAccessory")] SecondAcc = 17
+}
 
 public static class ItemSlots
 {
@@ -21,31 +62,4 @@ public static class ItemSlots
     public const int OverHelm = 16;
     public const int SecondAcc = 17;
     public const int ThirdAcc = 18;
-
-    public static string ItemSlotMetaValuesStoresBank(int slot)
-    {
-        return slot switch
-        {
-            0 => "None",
-            1 => "Weapons",
-            2 => "Armors",
-            3 => "Shields",
-            4 => "Helmets",
-            5 => "Earrings",
-            6 => "Amulets",
-            7 => "Rings",
-            8 => "Rings",
-            9 => "Arms",
-            10 => "Arms",
-            11 => "Belts",
-            12 => "Leggings",
-            13 => "Boots",
-            14 => "Other",
-            15 => "Overcoats",
-            16 => "Overhelms",
-            17 => "Other",
-            18 => "Other",
-            _ => "Other"
-        };
-    }
 }

@@ -17,12 +17,11 @@ public enum Class
 [Flags]
 public enum ClassStage
 {
-    Class = 1,
-    Dedicated = 1 << 1,
-    Advance = 1 << 2,
-    Master = 1 << 3,
-    Job = 1 << 4 | Master,
-    Quest = 1 << 5
+    Class = 0,
+    Subpathed_Master = 1,
+    Subpathed_Grand_Master = 2,
+    Pure_Master = 3,
+    Pure_Grand_Master = 4,
 }
 
 public static class SpriteClassRaceExtensions

@@ -1,5 +1,10 @@
 ﻿using Darkages.Enums;
+using Darkages.Interfaces;
 using Darkages.Types;
+using Legends.Server.Base.Types.Debuffs;
+
+using Darkages.Types.Buffs;
+
 using Microsoft.Data.SqlClient;
 
 using ServiceStack;
@@ -8,34 +13,11 @@ namespace Darkages.Templates;
 
 public class SpellTemplate : Template
 {
-    public SpellTemplate() { }
-    public string ScriptName { get; set; }
-    public byte Icon { get; set; }
-    public Pane Pane { get; set; }
-    public int Cooldown { get; set; }
-    public byte Sound { get; set; }
-    public PostQualifier PostQualifiers { get; set; }
-    public LearningPredicate Prerequisites { get; set; }
-    public List<LearningPredicate> LearningRequirements { get; } = new();
-    public ElementManager.Element ElementalProperty { get; set; }
-    public ushort TargetAnimation { get; set; }
-    public ushort Animation { get; set; }
-    public int BaseLines { get; set; }
-    public int MinLines { get; set; }
-    public int MaxLines { get; set; }
-    public byte MaxLevel { get; set; }
-    public int ManaCost { get; set; }
-    public string NpcKey { get; set; }
-    public SpellUseType TargetType { get; set; }
-
-    public string[] GetMetaData()
-    {
-        return Prerequisites?.MetaData;
-    }
+     public SpellTemplate() => Text = string.Empty + "\0";
 
     public enum SpellUseType : byte
     {
-        None = 0,
+        Unusable = 0,
         Prompt = 1,
         ChooseTarget = 2,
         FourDigit = 3,
@@ -44,7 +26,42 @@ public class SpellTemplate : Template
         TwoDigit = 6,
         OneDigit = 7
     }
+    //Pill Fix - Allow mundanes to show multiclass abilities
+    #region multiclass
+    public string MundaneName { get; set; }
+    #endregion multiclass
+    public ushort Animation { get; set; }
+    public int BaseLines { get; set; }
+    public BuffBase BuffBase { get; set; }
+    public int Cooldown { get; set; } = 0;
+    public double DamageExponent { get; set; }
+    public DebuffBase DebuffBase { get; set; }
+    public ElementManager.Element ElementalProperty { get; set; }
+    public byte Icon { get; set; }
+    public bool IsTrap { get; set; }
+    public List<LearningPredicate> LearningRequirements { get; set; } = new();
+    public double LevelRate { get; set; }
+    public int ManaCost { get; set; }
+    public byte MaxLevel { get; set; }
+    public int MaxLines { get; set; }
+    public int MinLines { get; set; }
+    public string NpcKey { get; set; }
+    public Pane Pane { get; set; }
+    public LearningPredicate Prerequisites { get; set; }
+    public string ScriptKey { get; set; }
+    public byte Sound { get; set; }
+    public ushort TargetAnimation { get; set; }
+    public SpellUseType TargetType { get; set; }
+    public string Text { get; set; }
+    public Tier TierLevel { get; set; }
 
+    public override string[] GetMetaData()
+    {
+        if (Prerequisites != null) 
+            return Prerequisites.MetaData;
+
+        return default;
+    }
 }
 
 public static class SpellStorage
@@ -54,44 +71,41 @@ public static class SpellStorage
         try
         {
             var sConn = new SqlConnection(conn);
-            const string sql = "SELECT * FROM ZolianAbilities.dbo.Spells";
+            const string sql = "SELECT * FROM LegendsAbilities.dbo.Spells";
 
             sConn.Open();
 
             var cmd = new SqlCommand(sql, sConn);
-            cmd.CommandTimeout = 5;
-
             var reader = cmd.ExecuteReader();
 
             while (reader.Read())
             {
                 var temp = new SpellTemplate();
                 var icon = (int)reader["Icon"];
+                var level = (int)reader["MaxLevel"];
                 var pane = reader["Pane"].ConvertTo<Pane>();
                 var sound = (int)reader["Sound"];
-                var post = reader["PostAttribute"].ConvertTo<PostQualifier>();
+                //var post = reader["PostAttribute"].ConvertTo<PostQualifier>();
+                var levelRate = (int)reader["LevelRate"];
                 var predicateId = (int)reader["PredicateId"];
                 var element = reader["Element"].ConvertTo<ElementManager.Element>();
                 var targetAnim = (int)reader["TargetAnimation"];
                 var anim = (int)reader["Animation"];
-                var level = (int)reader["MaxLevel"];
                 var spellScope = reader["SpellScope"].ConvertTo<SpellTemplate.SpellUseType>();
-
+                temp.ID = (int)reader["ID"];
                 temp.Icon = (byte)icon;
-                temp.ScriptName = reader["ScriptName"].ToString();
+                temp.ScriptKey = reader["ScriptKey"].ToString();
                 temp.Pane = pane;
                 temp.Cooldown = (int)reader["Cooldown"];
                 temp.Sound = (byte)sound;
-                temp.PostQualifiers = post;
+                temp.LevelRate = (double)levelRate;
 
                 #region LearningPredicate
 
                 var sConn2 = new SqlConnection(conn);
-                var sql2 = $"SELECT * FROM ZolianAbilities.dbo.SpellsPrerequisites WHERE PredicateId={predicateId.ToString()}";
+                var sql2 = $"SELECT * FROM LegendsAbilities.dbo.SpellsPrerequisites WHERE PredicateId={predicateId.ToString()}";
                 sConn2.Open();
                 var cmd2 = new SqlCommand(sql2, sConn2);
-                cmd2.CommandTimeout = 5;
-
                 var reader2 = cmd2.ExecuteReader();
 
                 while (reader2.Read())
@@ -125,41 +139,38 @@ public static class SpellStorage
 
                     var itemList = new List<ItemPredicate>();
 
-                    if (item1.Item != null && item1.AmountRequired > 0)
+                    if ((item1.Item != null) && (item1.AmountRequired > 0))
                         itemList.Add(item1);
-                    if (item2.Item != null && item2.AmountRequired > 0)
+                    if ((item2.Item != null) && (item2.AmountRequired > 0))
                         itemList.Add(item2);
-                    if (item3.Item != null && item3.AmountRequired > 0)
+                    if ((item3.Item != null) && (item3.AmountRequired > 0))
                         itemList.Add(item3);
-                    if (item4.Item != null && item4.AmountRequired > 0)
+                    if ((item4.Item != null) && (item4.AmountRequired > 0))
                         itemList.Add(item4);
-                    if (item5.Item != null && item5.AmountRequired > 0)
+                    if ((item5.Item != null) && (item5.AmountRequired > 0))
                         itemList.Add(item5);
 
-                    var primClass = reader2["PrimaryClass"].ConvertTo<Class>();
-                    var secClass = reader2["SecondaryClass"].ConvertTo<Class>();
+                    var primClass = reader2["Class"].ConvertTo<Class>();
+                    var secClass = reader2["Displayclass"].ConvertTo<Class>();
                     var stage = reader2["Stage"].ConvertTo<ClassStage>();
                     temp.Prerequisites = learning;
-                    temp.Prerequisites.ItemsRequired = itemList;
+                    temp.Prerequisites.Items_Required = itemList;
                     temp.Prerequisites.DisplayName = reader2["DisplayName"].ToString();
                     temp.Name = temp.Prerequisites.DisplayName;
-                    temp.Prerequisites.ClassRequired = primClass;
-                    temp.Prerequisites.SecondaryClassRequired = secClass;
-                    temp.Prerequisites.StrRequired = (int)reader2["Strength"];
-                    temp.Prerequisites.IntRequired = (int)reader2["Intelligence"];
-                    temp.Prerequisites.WisRequired = (int)reader2["Wisdom"];
-                    temp.Prerequisites.ConRequired = (int)reader2["Constitution"];
-                    temp.Prerequisites.DexRequired = (int)reader2["Dexterity"];
-                    temp.Prerequisites.ExpLevelRequired = (int)reader2["Level"];
-                    var exp = (long)reader2["Experience"];
-                    temp.Prerequisites.ExperienceRequired = (uint)exp;
-                    var gold = (int)reader2["Gold"];
-                    temp.Prerequisites.GoldRequired = (uint)gold;
-                    temp.Prerequisites.SkillLevelRequired = (int)reader2["SkillLevel"];
-                    temp.Prerequisites.SkillRequired = reader2["SkillRequired"].ToString();
-                    temp.Prerequisites.SpellLevelRequired = (int)reader2["SpellLevel"];
-                    temp.Prerequisites.SpellRequired = reader2["SpellRequired"].ToString();
-                    temp.Prerequisites.StageRequired = stage;
+                    temp.Prerequisites.Class_Required = primClass;
+                    temp.Prerequisites.Displayclass_Required = secClass;
+                    temp.Prerequisites.Str_Required = (int)reader2["Strength"];
+                    temp.Prerequisites.Int_Required = (int)reader2["Intelligence"];
+                    temp.Prerequisites.Wis_Required = (int)reader2["Wisdom"];
+                    temp.Prerequisites.Con_Required = (int)reader2["Constitution"];
+                    temp.Prerequisites.Dex_Required = (int)reader2["Dexterity"];
+                    temp.Prerequisites.ExpLevel_Required = (int)reader2["Level"];
+                    temp.Prerequisites.Gold_Required = (int)reader2["Gold"];
+                    temp.Prerequisites.First_Ability_Level_Required = (int)reader2["FirstAbilityLevel"];
+                    temp.Prerequisites.First_Ability_Required = reader2["FirstAbilityRequired"].ToString();
+                    temp.Prerequisites.Second_Ability_Level_Required = (int)reader2["SecondAbilityLevel"];
+                    temp.Prerequisites.Second_Ability_Required = reader2["SecondAbilityRequired"].ToString();
+                    temp.Prerequisites.Stage_Required = stage;
                 }
 
                 reader2.Close();
@@ -176,12 +187,13 @@ public static class SpellStorage
                 temp.MaxLevel = (byte)level;
                 temp.ManaCost = (int)reader["ManaCost"];
                 temp.NpcKey = reader["NpcKey"].ToString();
+                temp.MundaneName = reader["MundaneName"].ToString();
                 temp.TargetType = spellScope;
                 temp.Description = reader["Description"].ToString();
-                temp.DamageMod = reader["DamageMod"].ToString();
+                if (temp.Name == null) 
+                    continue;
 
-                if (temp.Name == null) continue;
-                ServerSetup.Instance.TempGlobalSpellTemplateCache[temp.Name] = temp;
+                ServerSetup.Instance.GlobalSpellTemplateCache[temp.ID.ToString()] = temp;
             }
 
             reader.Close();
@@ -189,7 +201,8 @@ public static class SpellStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.EventsLogger(e.ToString());
+            Console.WriteLine(e.ToString());
+            throw;
         }
     }
 }
