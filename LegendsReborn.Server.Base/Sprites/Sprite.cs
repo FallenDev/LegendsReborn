@@ -31,6 +31,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public readonly Stopwatch MonsterBuffAndDebuffStopWatch = new();
     private readonly Stopwatch _threatControl = new();
     private readonly object _walkLock = new();
+    public int GroupId { get; set; }
 
     public bool Alive => CurrentHp > 0;
     public bool Attackable => this is Monster || this is Aisling || this is Mundane;

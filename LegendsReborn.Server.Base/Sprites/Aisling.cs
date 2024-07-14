@@ -481,7 +481,6 @@ public class Aisling : Sprite
         WaterTimer = DateTime.Now - TimeSpan.FromDays(7);
         SpiritTimer = DateTime.Now - TimeSpan.FromDays(7);
         Remains = new CursedSachel(this);
-        ActiveReactor = null;
         DiscoveredMaps = new List<int>();
         Popups = new List<Popup>();
         IgnoredList = new List<string>();
@@ -495,30 +494,9 @@ public class Aisling : Sprite
         JewelingRecipes = new Dictionary<string, string>();
         GroupId = 0;
     }
-    public bool ShouldWalk
-    {
-        get
-        {
-            if (ServerSetup.Instance.Config.ProhibitF5Walk && DateTime.UtcNow.Subtract(Client.LastClientRefresh).TotalMilliseconds < 150)
-                return false;
-            if (ServerSetup.Instance.Config.ProhibitItemSwitchWalk && DateTime.UtcNow.Subtract(LastEquipOrUnEquip).TotalMilliseconds < 150)
-            {
-                GameLog.UserActivityWarning($"Player is likely item switch walking.");
-                return false;
-            }
-            if (this is Aisling aisling)
-                if (aisling.MonsterForm == 0 && ServerSetup.Instance.Config.ProhibitSpeedWalk && !aisling.WalkCounter.TryIncrement())
-                {
-                    GameLog.UserActivityWarning($"{aisling.Username} is likely attempting to speed hack.");
-                    return false;
-                }
-            return true;
-        }
-    }
+    public bool ShouldWalk => !ServerSetup.Instance.Config.ProhibitF5Walk || !(DateTime.UtcNow.Subtract(Client.LastClientRefresh).TotalMilliseconds < 150);
     public int AbpLevel { get; set; }
     public int AbpNext { get; set; }
-    public Reactor ActiveReactor { get; set; }
-    public DialogSequence ActiveSequence { get; set; }
     [JsonConverter(typeof(StringEnumConverter))]
     public ActivityStatus ActiveStatus { get; set; }
     public AnimalForm AnimalForm { get; set; }
@@ -560,10 +538,10 @@ public class Aisling : Sprite
     public bool EventHost { get; set; }
     public bool Developer { get; set; }
     public int GamePoints { get; set; }
-    public List<ClientGameSettings> GameSettings { get; set; }
+    public UserOptions GameSettings { get; init; } = new();
 
     [JsonConverter(typeof(StringEnumConverter))]
-    public Gender Gender { get; set; }
+    public Enums.Gender Gender { get; set; }
     public uint GoldPoints { get; set; }
     public Party GroupParty => ServerSetup.Instance.GlobalGroupCache.ContainsKey(GroupId)
         ? ServerSetup.Instance.GlobalGroupCache[GroupId]

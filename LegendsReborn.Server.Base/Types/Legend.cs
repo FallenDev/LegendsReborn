@@ -1,106 +1,106 @@
-﻿using System.Collections.ObjectModel;
-using Chaos.Common.Identity;
-
-using Dapper;
+﻿using Dapper;
 
 using Darkages.Database;
-using Darkages.Enums;
 using Darkages.Network.Client;
 using Darkages.Sprites;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
-using System.Data;
 
 namespace Darkages.Types;
 
 public class Legend
 {
-    public readonly ObservableCollection<LegendItem> LegendMarks = [];
+    public List<LegendItem> LegendMarks = new();
 
-    public void AddLegend(LegendItem legend, WorldClient client)
+    public void AddLegend(WorldClient client, LegendItem legend)
     {
-        if (legend == null) return;
-        if (client.Aisling == null) return;
-        if (LegendMarks.Contains(legend)) return;
+        var Date = Calendar.Now.LegendToString();
+        ;
+        if (legend == null)
+            return;
+        if (client.Aisling == null)
+            return;
+        if (LegendMarks.Contains(legend))
+            return;
+        legend.Value += $" - {Date}";
         LegendMarks.Add(legend);
         AddToAislingDb(client.Aisling, legend);
     }
 
-    public bool Has(string lpVal)
-    {
-        return LegendMarks.Any(i => i.Text != null && i.Text.Equals(lpVal));
-    }
-
-    public bool HasKey(string key)
-    {
-        return LegendMarks.Any(i => i.Key != null && i.Key.Equals(key));
-    }
+    public bool Has(string lpVal) => LegendMarks.Any(i => i.Value.Equals(lpVal));
 
     public void Remove(LegendItem legend, WorldClient client)
     {
-        if (legend == null) return;
-        if (client.Aisling == null) return;
+        if (legend == null) 
+            return;
+        if (client.Aisling == null) 
+            return;
         LegendMarks.Remove(legend);
-        DeleteFromAislingDb(legend);
+        DeleteFromAislingDb(client.Aisling, legend);
     }
+    public static void RemoveFromDB(WorldClient client, LegendItem legend) => DeleteFromAislingDb(client.Aisling, legend);
 
     public class LegendItem
     {
-        public uint LegendId { get; init; }
-        public bool IsPublic { get; init; }
-        public string Key { get; init; }
-        public DateTime Time { get; init; }
-        public LegendColor Color { get; init; }
-        public byte Icon { get; init; }
-        public string Text { get; init; }
-    }
+        public string Category { get; set; }
+        public byte Color { get; set; }
+        public byte Icon { get; set; }
+        public string Value { get; set; }
+        public int LegendId { get; set; }
 
+    }
     private static void AddToAislingDb(Aisling aisling, LegendItem legend)
     {
+        using var sConn = new SqlConnection(AislingStorage.ConnectionString);
+        using var cmd = sConn.CreateCommand();
+
         try
         {
-            var sConn = new SqlConnection(AislingStorage.ConnectionString);
             sConn.Open();
-            var cmd = new SqlCommand("AddLegendMark", sConn);
-            cmd.CommandType = CommandType.StoredProcedure;
 
-            var legendId = EphemeralRandomIdGenerator<uint>.Shared.NextId;
+            //int legendId = /*zizette*/;
+            var s = legend.Value;
+            s = s.Replace("'", "''");
+            var playerInventory = "INSERT INTO LegendsPlayers.dbo.PlayersLegend (Serial, Category, Color, Icon, Value)" +
+                                  $" VALUES ('{aisling.Serial}','{legend.Category}','{legend.Color}','{legend.Icon}','{s}')";
 
-            cmd.Parameters.Add("@LegendId", SqlDbType.Int).Value = legendId;
-            cmd.Parameters.Add("@Serial", SqlDbType.Int).Value = aisling.Serial;
-            cmd.Parameters.Add("@Key", SqlDbType.VarChar).Value = legend.Key;
-            cmd.Parameters.Add("@IsPublic", SqlDbType.Bit).Value = legend.IsPublic;
-            cmd.Parameters.Add("@Time", SqlDbType.DateTime).Value = legend.Time;
-            cmd.Parameters.Add("@Color", SqlDbType.VarChar).Value = legend.Color;
-            cmd.Parameters.Add("@Icon", SqlDbType.Int).Value = legend.Icon;
-            cmd.Parameters.Add("@Text", SqlDbType.VarChar).Value = legend.Text;
-            cmd.CommandTimeout = 5;
+            cmd.CommandText = playerInventory;
             cmd.ExecuteNonQuery();
-            sConn.Close();
+        }
+        catch (SqlException e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
         }
         catch (Exception e)
         {
-            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
-            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.ToString());
         }
     }
 
-    private static void DeleteFromAislingDb(LegendItem legend)
+    private static void DeleteFromAislingDb(Aisling aisling, LegendItem legend)
     {
-        if (legend.LegendId == 0) return;
+
+        if (legend.Category == null) 
+            return;
 
         try
         {
             var sConn = new SqlConnection(AislingStorage.ConnectionString);
+            var category = legend.Category.ToString();
+            var serial = aisling.Serial;
             sConn.Open();
-            const string cmd = "DELETE FROM ZolianPlayers.dbo.PlayersLegend WHERE LegendId = @LegendId";
-            sConn.Execute(cmd, new { legend.LegendId });
+            const string CMD = "DELETE FROM LegendsPlayers.dbo.PlayersLegend WHERE Category = @Category AND Serial = @Serial";
+            sConn.Execute(CMD, new {
+                Category = category,
+                Serial = serial });
             sConn.Close();
+        }
+        catch (SqlException e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
         }
         catch (Exception e)
         {
-            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
-            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.ToString());
         }
     }
 }

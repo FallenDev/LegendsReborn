@@ -4,8 +4,13 @@ using Darkages.Network.Client;
 using Darkages.Sprites;
 using Darkages.Types;
 using System.Collections.Concurrent;
+using Dapper;
 using Darkages.Object;
 using EquipmentSlot = Darkages.Models.EquipmentSlot;
+using Darkages.Database;
+using Darkages.Interfaces;
+using Microsoft.Data.SqlClient;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Darkages.Managers;
 
@@ -22,7 +27,7 @@ public class EquipmentManager
 
     public WorldClient Client { get; set; }
     public int Length => Equipment?.Count ?? 0;
-    public ConcurrentDictionary<int, EquipmentSlot> Equipment { get; set; }
+    public Dictionary<int, EquipmentSlot> Equipment { get; set; }
 
     public EquipmentSlot Weapon => Equipment[ItemSlots.Weapon];
     public EquipmentSlot Armor => Equipment[ItemSlots.Armor];
@@ -43,213 +48,271 @@ public class EquipmentManager
     public EquipmentSlot SecondAcc => Equipment[ItemSlots.SecondAcc];
     public EquipmentSlot ThirdAcc => Equipment[ItemSlots.ThirdAcc];
 
-    public void Add(int displaySlot, Item item)
+    public void Add(int displayslot, Item item)
     {
-        if (Client == null) return;
-        if (displaySlot is <= 0 or > 18) return;
-        if (item?.Template == null) return;
-        if (!item.Template.Flags.FlagIsSet(ItemFlags.Equipable)) return;
+        if (Client == null) 
+            return;
+        if ((displayslot <= 0) || (displayslot > 17)) 
+            return;
+        if (item?.Template == null) 
+            return;
+        if (!item.Template.Flags.HasFlag(ItemFlags.Equipable)) 
+            return;
 
-        HandleEquipmentSwap(displaySlot, item);
+        Equipment ??= new Dictionary<int, EquipmentSlot>();
+
+        HandleEquipmentSwap(displayslot, item);
+        Client.Aisling.CurrentWeight += item.Template.CarryWeight;
+        Client.Aisling.LastEquipOrUnEquip = DateTime.UtcNow;
+
     }
 
-    /// <summary>
-    /// Made public for adding items directly on character creation
-    /// </summary>
-    private void AddEquipment(int displaySlot, Item item, bool remove = true)
+    private void AddEquipment(int displayslot, Item item, bool remove = true)
     {
-        Equipment[displaySlot] = new EquipmentSlot(displaySlot, item);
-        if (remove) RemoveFromInventoryToEquip(item);
-        DisplayToEquipment((byte)displaySlot, item);
-        OnEquipmentAdded((byte)displaySlot);
+        Equipment[displayslot] = new EquipmentSlot(displayslot, item);
+
+        if (remove)
+            Client.Aisling.Inventory.Remove(item.InventorySlot);
+
+        AddToAislingDb(Client.Aisling, item, displayslot);
+        DisplayToEquipment((byte)displayslot, item);
+        OnEquipmentAdded((byte)displayslot);
     }
 
     public void DecreaseDurability()
     {
-        var broken = new List<Item>();
-
-        foreach (var item in Equipment.Select(equipment => equipment.Value?.Item).Where(item => item?.Template != null))
+        foreach (var item in Equipment.Values.Select(equipment => equipment?.Item)
+                     .Where(item => item?.Template != null))
         {
-            if (item.Template.Flags.FlagIsSet(ItemFlags.Repairable))
-            {
-                if (item.Durability > 0)
-                    item.Durability--;
-
-                if (item.Durability <= 0)
-                    item.Durability = 0;
-            }
+            if (item.Template.Flags.HasFlag(ItemFlags.Equipable) && (item.Template.EquipmentSlot is not 14 or 15))
+                item.Durability--;
 
             ManageDurabilitySignals(item);
-
-            if (item.Durability == 0) broken.Add(item);
-            if (item.Durability > item.MaxDurability)
-                item.Durability = item.MaxDurability;
-        }
-
-        if (broken.Count == 0) return;
-
-        foreach (var item in broken.Where(item => item?.Template != null))
-        {
-            item.ItemQuality = Item.Quality.Damaged;
-            RemoveFromExistingSlot(item.Slot);
-            Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} has been damaged.");
         }
     }
 
-    private void DisplayToEquipment(byte displaySlot, Item item)
+    private void DisplayToEquipment(byte displayslot, Item item)
     {
         if (item != null)
-            Client.SendEquipment(displaySlot, item);
+            Client.SendEquipment(displayslot, item);
     }
-
-    public bool RemoveFromExistingSlot(int displaySlot)
+        
+    public bool RemoveForDeath(int displaySlot, bool returnIt = true)
     {
-        if (Equipment[displaySlot] == null || displaySlot == 0) return true;
+        if (Equipment[displaySlot] == null)
+            return true;
+
         var itemObj = Equipment[displaySlot].Item;
-        if (itemObj == null) return false;
 
+        if (itemObj == null)
+            return false;
+
+        DeleteFromAislingDb(itemObj);
         RemoveFromSlot(displaySlot);
-        return itemObj.GiveTo(Client.Aisling, false) || HandleUnreturnedItem(itemObj);
-    }
 
-    private void HandleEquipmentSwap(int displaySlot, Item item)
+        if (!returnIt)
+            return HandleDeathPile(itemObj);
+
+        return Client.Aisling.GiveItem(itemObj) || HandleDeathPile(itemObj);
+    }
+    public bool RemoveFromExisting(int displayslot, bool returnit = true)
+    {
+        if (Equipment[displayslot] == null) 
+            return true;
+
+        var itemObj = Equipment[displayslot].Item;
+
+        if (itemObj == null)
+            return false;
+            
+        DeleteFromAislingDb(itemObj);
+        RemoveFromSlot(displayslot);
+
+        if (!returnit)
+            return HandleUnreturnedItem(itemObj);
+
+        return Client.Aisling.GiveItem(itemObj) || HandleUnreturnedItem(itemObj);
+    }
+    public void HandleEquipmentSwap(int displaySlot, Item item, bool returnIt = true)
     {
         Item itemObj = null;
 
         if (Equipment[displaySlot] != null)
         {
             itemObj = Equipment[displaySlot].Item;
+            DeleteFromAislingDb(itemObj);
         }
 
-        if (item == null) return;
+        if (item == null)
+            return;
 
         RemoveFromSlot(displaySlot);
         AddEquipment(displaySlot, item);
 
-        if (itemObj == null) return;
-        var givenBack = itemObj.GiveTo(Client.Aisling, false);
-        if (givenBack) return;
-        Client.Aisling.BankManager.Items.TryAdd(itemObj.ItemId, itemObj);
-        Client.SendServerMessage(ServerMessageType.ActiveMessage, "Inventory full, item deposited to bank");
+        if (!returnIt)
+            HandleUnreturnedItem(itemObj);
+
+        Client.Aisling.GiveItem(itemObj);
     }
-
-    private void RemoveFromInventoryToEquip(Item item, bool handleWeight = false)
+    private bool HandleDeathPile(Item itemObj)
     {
-        if (item == null) return;
+        if (itemObj == null)
+            return true;
 
-        if (Client.Aisling.Inventory.Items.TryUpdate(item.InventorySlot, null, item))
-            Client.SendRemoveItemFromPane(item.InventorySlot);
-
-        if (handleWeight)
-        {
-            Client.Aisling.CurrentWeight -= item.Template.CarryWeight;
-            if (Client.Aisling.CurrentWeight < 0)
-                Client.Aisling.CurrentWeight = 0;
-        }
-
-        Client.SendAttributes(StatUpdateType.Full);
-    }
-
-    private bool HandleUnreturnedItem(Item itemObj)
-    {
-        if (itemObj == null) return true;
-
-        Client.Aisling.CurrentWeight -= itemObj.Template.CarryWeight;
-
-        if (Client.Aisling.CurrentWeight < 0)
+        if (Client.Aisling.CurrentWeight < 0 || Client.Aisling.CurrentWeight > 500)
             Client.Aisling.CurrentWeight = 0;
+        ObjectManager.DelObject(itemObj);
+        Client.SendAttributes(StatUpdateType.Primary);
 
-        Client.Aisling.BankManager.Items.TryAdd(itemObj.ItemId, itemObj);
-        Client.SendAttributes(StatUpdateType.Full);
         return true;
     }
+    private bool HandleUnreturnedItem(Item itemObj)
+    {
+        if (itemObj == null)
+            return true;
+            
+        if (Client.Aisling.CurrentWeight < 0 || Client.Aisling.CurrentWeight > 500)
+            Client.Aisling.CurrentWeight = 0;
 
+        if (itemObj.Durability is not 0)
+        {
+            Client.SendServerMessage(ServerMessageType.OrangeBar2, $"{itemObj.Template.Name} was sent to storage.");
+            Client.Aisling.Bank.Deposit(itemObj);
+        }
+        ObjectManager.DelObject(itemObj);
+        Client.SendAttributes(StatUpdateType.Primary);
+
+        return true;
+    }
     private void ManageDurabilitySignals(Item item)
     {
-        if (item.Durability > item.MaxDurability)
-            item.MaxDurability = item.Durability;
-
-        var p10 = item.Durability * 100 / item.MaxDurability;
-
-        if (item.Warnings is not { Length: > 0 }) return;
-
-        switch (p10)
+        item.Durability = Math.Clamp(item.Durability, 0, item.Template.MaxDurability);
+            
+        var durablityPct = Math.Abs(item.Durability * 100 / item.Template.MaxDurability);
+            
+        if ((item.Durability is 0) && item.Template.Flags.HasFlag(ItemFlags.Equipable))
         {
-            case <= 10 when !item.Warnings[0]:
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis almost broken!. Please repair it soon (< 10%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis almost broken!. Please repair it soon (< 10%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis almost broken!. Please repair it soon (< 10%)");
-                item.Warnings[0] = true;
-                break;
-            case <= 30 and > 10 when !item.Warnings[1]:
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis wearing out soon. Please repair it ASAP. (< 30%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis wearing out soon. Please repair it ASAP. (< 30%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qis wearing out soon. Please repair it ASAP. (< 30%)");
-                item.Warnings[1] = true;
-                break;
-            case <= 50 and > 30 when !item.Warnings[2]:
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qwill need a repair soon. (< 50%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qwill need a repair soon. (< 50%)");
-                Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{item.Template.Name} {{=qwill need a repair soon. (< 50%)");
-                item.Warnings[2] = true;
-                break;
+            Client.SystemMessage($"{{=c {item.Template.Name} has been destroyed!");
+            Client.Aisling.EquipmentManager.RemoveFromExisting(item.Template.EquipmentSlot, false);
+            return;
+        }
+        if (durablityPct <= 1 && !item.Warnings[0])
+        {
+            Client.SystemMessage($"{{=c {item.Template.Name} is almost broken! (< 1%)");
+            item.Warnings[0] = true;
+        }
+        if ((durablityPct <= 10) && !item.Warnings[1])
+        {
+            Client.SystemMessage($"{{=c {item.Template.Name} is almost worn out! (< 10%)");
+            item.Warnings[1] = true;
+        }
+        else if ((durablityPct <= 30) && (durablityPct > 10) && !item.Warnings[2])
+        {
+            Client.SystemMessage($"{{=c{item.Template.Name} is wearing out. (< 30%)");
+            item.Warnings[2] = true;
+        }
+        else if ((durablityPct <= 50) && (durablityPct > 30) && !item.Warnings[3])
+        {
+            Client.SystemMessage($"{{=c{item.Template.Name} has been damaged. (< 50%)");
+            item.Warnings[3] = true;
         }
     }
-
-    private void OnEquipmentAdded(byte displaySlot)
+    private void OnEquipmentAdded(byte displayslot)
     {
-        var scripts = Equipment[displaySlot].Item?.Scripts;
+        var scripts = Equipment[displayslot].Item?.Scripts;
         if (scripts != null)
         {
-            var scriptValues = scripts.Values;
-            foreach (var script in scriptValues)
-                script.Equipped(Client.Aisling, displaySlot);
+            var scriptsValues = scripts.Values;
+            foreach (var script in scriptsValues)
+                script.Equipped(Client.Aisling, displayslot);
         }
 
-        var item = Equipment[displaySlot].Item;
+        var item = Equipment[displayslot].Item;
+
+        if (item != null)
+            item.Equipped = true;
+
+        Client.SendAttributes(StatUpdateType.Full);
+        Client.UpdateDisplay();
+    }
+    private void OnEquipmentRemoved(byte displayslot)
+    {
+        if (Equipment[displayslot] == null)
+            return;
+
+        var item = Equipment[displayslot].Item;
+        var itemScripts = item?.Scripts;
+        if (itemScripts != null)
+        {
+            var scripts = itemScripts.Values;
+            foreach (var script in scripts)
+                script.UnEquipped(Client.Aisling, displayslot);
+        }
+
         if (item != null)
         {
-            item.ItemPane = Item.ItemPanes.Equip;
-            item.ReapplyItemModifiers(Client);
+            item.Equipped = false;
+            Client.Aisling.CurrentWeight -= item.Template.CarryWeight;
         }
 
+        Client.SendAttributes(StatUpdateType.Full);
         Client.UpdateDisplay();
     }
-
-    private void OnEquipmentRemoved(byte displaySlot)
+    private void RemoveFromSlot(int displayslot)
     {
-        if (Equipment[displaySlot] == null) return;
-
-        var scripts = Equipment[displaySlot].Item?.Scripts;
-        if (scripts != null)
+        OnEquipmentRemoved((byte)displayslot);
+        Client.SendUnequip((Chaos.Common.Definitions.EquipmentSlot)displayslot);
+        Equipment[displayslot] = null;
+    }
+    public static void AddToAislingDb(Sprite aisling, Item item, int slot)
+    {
+        try
         {
-            var scriptValues = scripts.Values;
-            foreach (var script in scriptValues)
-                script.UnEquipped(Client.Aisling, displaySlot);
+            var sConn = new SqlConnection(AislingStorage.ConnectionString);
+            var adapter = new SqlDataAdapter();
+            var s = item.Template.Name.Replace("'", "''");
+            sConn.Open();
+            var color = ItemColors.ItemColorsToInt(item.Template.Color);
+            var playerInventory = "INSERT INTO LegendsPlayers.dbo.PlayersEquipped (ItemId, Name, Serial, Slot, Color, Image, DisplayImage, Durability, MaxDurability, Owner, InventorySlot, Stacks, Enchantable)" +
+                                  $"VALUES ('{item.ItemId}','{s}','{aisling.Serial}','{slot}','{color}','{item.Image}','{item.DisplayImage}','{item.Durability}','{item.Template.MaxDurability}','{item.Owner}','{item.InventorySlot}','{item.Stacks}', '{item.Template.Enchantable}')";
+
+            var cmd10 = new SqlCommand(playerInventory, sConn);
+            adapter.InsertCommand = cmd10;
+            adapter.InsertCommand.ExecuteNonQuery();
+
+            sConn.Close();
         }
-
-        var item = Equipment[displaySlot].Item;
-        if (item != null) item.ItemPane = Item.ItemPanes.Inventory;
-
-        Client.UpdateDisplay();
+        catch (SqlException e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
+        }
+        catch (Exception e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
+        }
     }
-
-    private void RemoveFromSlot(int displaySlot)
+    public static void DeleteFromAislingDb(Item item)
     {
-        OnEquipmentRemoved((byte)displaySlot);
-        Client.SendUnequip((Chaos.Common.Definitions.EquipmentSlot)displaySlot);
-        Equipment.TryUpdate(displaySlot, null, FindInSlot(displaySlot));
-        var item = new Item();
-        item.ReapplyItemModifiers(Client);
-    }
+        var sConn = new SqlConnection(AislingStorage.ConnectionString);
+        if (item.ItemId == 0) 
+            return;
 
-    private EquipmentSlot FindInSlot(int slot)
-    {
-        EquipmentSlot ret = null;
+        try
+        {
+            sConn.Open();
 
-        if (Equipment.TryGetValue(slot, out var item))
-            ret = item;
+            const string cmd = "DELETE FROM LegendsPlayers.dbo.PlayersEquipped WHERE ItemId = @ItemId";
+            sConn.Execute(cmd, new { item.ItemId });
 
-        return ret?.Item is { Template: not null } ? ret : null;
+            sConn.Close();
+        }
+        catch (SqlException e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
+        }
+        catch (Exception e)
+        {
+            ServerSetup.EventsLogger(e.ToString());
+        }
     }
 }

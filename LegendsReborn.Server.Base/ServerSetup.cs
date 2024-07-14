@@ -4,7 +4,6 @@ using Darkages.Database;
 using Darkages.Interfaces;
 using Darkages.Models;
 using Darkages.Network.Server;
-using Darkages.Sprites;
 using Darkages.Templates;
 using Darkages.Types;
 
@@ -12,11 +11,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using System.Collections.Concurrent;
-using System.Collections.Frozen;
 using System.Data;
 using System.Net;
 using System.Reflection;
 using Chaos.Common.Identity;
+using Darkages.Meta;
+using Darkages.Types.Buffs;
+using Legends.Server.Base.Types.Debuffs;
 using Microsoft.Data.SqlClient;
 using RestSharp;
 
@@ -31,12 +32,14 @@ public class ServerSetup : IServerContext
     public readonly RestClient RestReport;
 
     public bool Running { get; set; }
+    public bool Paused { get; set; }
     public SqlConnection ServerSaveConnection { get; set; }
     public IServerConstants Config { get; set; }
     public WorldServer Game { get; set; }
     public LoginServer LoginServer { get; set; }
     public LobbyServer LobbyServer { get; set; }
     public CommandParser Parser { get; set; }
+    public CommandParser PlayerParser { get; set; }
     public string StoragePath { get; set; }
     public string MoonPhase { get; set; }
     public byte LightPhase { get; set; }
@@ -44,31 +47,27 @@ public class ServerSetup : IServerContext
     public string KeyCode { get; set; }
     public string Unlock { get; set; }
     public IPAddress IpAddress { get; set; }
-    public string[] GameMastersIPs { get; set; }
     public string InternalAddress { get; set; }
 
-    // Templates
-    public Dictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
-    public Dictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
+    public List<WarpTemplate> GlobalWarpTemplateCache { get; set; }
+    public List<PopupTemplate> GlobalPopupCache { get; set; }
+    public Dictionary<int, Area> GlobalMapCache { get; set; }
+    public Dictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
     public Dictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
     public Dictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
     public Dictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
+    public Dictionary<string, ClanTemplate> GlobalClanTemplateCache { get; set; }
+    public Dictionary<string, ParcelTemplate> GlobalParcelTemplateCache { get; set; }
     public Dictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
-    public Dictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
     public Dictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
+    public Dictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
+    public Dictionary<string, Reactor> GlobalReactorCache { get; set; }
+    public ConcurrentDictionary<string, BuffBase> GlobalBuffCache { get; set; } = [];
+    public ConcurrentDictionary<string, DebuffBase> GlobalDeBuffCache { get; set; } = [];
+    public ConcurrentDictionary<string, BoardTemplate> GlobalBoardCache { get; set; } = [];
     public Dictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
-    public Dictionary<int, Area> GlobalMapCache { get; set; }
-
-    // Live
-    public ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; } = [];
-    public ConcurrentDictionary<string, Debuff> GlobalDeBuffCache { get; set; } = [];
-    public ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; } = [];
+    public List<Metafile> GlobalMetaCache { get; set; } = [];
     public ConcurrentDictionary<int, Party> GlobalGroupCache { get; set; } = [];
-    public ConcurrentDictionary<uint, Mundane> GlobalMundaneCache { get; set; } = [];
-    public ConcurrentDictionary<long, Item> GlobalSqlItemCache { get; set; } = [];
-    public ConcurrentDictionary<long, Money> GlobalGroundMoneyCache { get; set; } = [];
-    public ConcurrentDictionary<uint, Trap> Traps { get; set; } = [];
-    public ConcurrentDictionary<long, ConcurrentDictionary<string, KillRecord>> GlobalKillRecordCache { get; set; } = [];
     public ConcurrentDictionary<IPAddress, IPAddress> GlobalLobbyConnection { get; set; } = [];
     public ConcurrentDictionary<IPAddress, IPAddress> GlobalLoginConnection { get; set; } = [];
     public ConcurrentDictionary<IPAddress, IPAddress> GlobalWorldConnection { get; set; } = [];
